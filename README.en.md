@@ -6,7 +6,7 @@
 ![Release](https://img.shields.io/github/v/release/jianzhoujz/bilicast)
 
 Cast Bilibili web videos to a DLNA TV / projector / set-top box on your local
-network. macOS menu bar app + Tampermonkey userscript.
+network. macOS menu bar app + Tampermonkey userscript or browser extension.
 
 English · [中文](README.md)
 
@@ -19,8 +19,8 @@ English · [中文](README.md)
 The Bilibili web player has no native "cast to TV" button — only the mobile and
 tablet apps do. This project adds one with two pieces:
 
-1. A **Tampermonkey userscript** that injects a Cast button on every Bilibili
-   video page;
+1. A **browser-side entry point** — either a Tampermonkey userscript or a
+   browser extension — that injects a Cast button on every Bilibili video page;
 2. A **macOS menu bar app** that runs a local HTTP control API, a LAN-facing
    stream proxy, and a DLNA / UPnP discovery + control client.
 
@@ -64,12 +64,24 @@ Grab `BiliCastHelper-VERSION.dmg` from
 [GitHub Releases](https://github.com/jianzhoujz/bilicast/releases). Open the
 DMG and drag `BiliCastHelper.app` onto the `Applications` shortcut.
 
-### Userscript
+### Browser-side entry point
+
+Install either option.
+
+#### Tampermonkey userscript
 
 1. Install [Tampermonkey](https://www.tampermonkey.net/) in your browser.
 2. Open [`userscript/bilicast-helper.user.js`](userscript/bilicast-helper.user.js),
    create a new userscript, paste the entire contents, save.
 3. To update later, paste the new version over the old one.
+
+#### Browser extension (Chrome / Edge developer mode)
+
+1. Open `chrome://extensions` or `edge://extensions`.
+2. Enable Developer Mode.
+3. Click `Load unpacked`.
+4. Pick the repository's [`extension/`](extension/) directory.
+5. Click the extension icon, paste the Pairing Token from the menu bar app, and save it.
 
 ## First launch
 
@@ -172,6 +184,9 @@ module boundaries, SSDP / SOAP details, ffmpeg integration, update checker,
 known pitfalls, release workflow.
 
 ```bash
+# browser-side syntax / extension bridge smoke test
+node --test tests/extension-smoke.test.mjs
+
 cd macos
 
 # compile

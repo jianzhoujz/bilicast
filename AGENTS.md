@@ -8,6 +8,7 @@
 把 B 站网页视频投到局域网 DLNA 电视的小工具。两部分：
 
 - `userscript/` —— Tampermonkey 用户脚本（B 站页面注入"投屏"按钮、抽流地址）
+- `extension/` —— 浏览器扩展（Chrome / Edge MV3），复用同一份内容脚本能力，通过 background bridge 做跨域请求与 token 存储
 - `macos/` —— 纯 Swift 写的 macOS 菜单栏 App（本地 HTTP 控制 API + 流代理 + DLNA 控制）
 
 **没有 Xcode 工程文件、没有外部依赖、纯 SwiftPM + bash。** 跟 `Projects/demo/input-indicator` 同一种工程风格。
@@ -21,6 +22,14 @@ bilicast/
 ├── BiliCastHelper_PLAN.md             # 原始规划（Go 版，存档参考）
 ├── userscript/
 │   └── bilicast-helper.user.js        # 单文件，可直接粘进 Tampermonkey
+├── extension/
+│   ├── manifest.json                  # Chrome / Edge MV3 扩展入口
+│   ├── background.js                  # storage + GM_xmlhttpRequest 等价桥接
+│   ├── content.js                     # 与 userscript 内容保持同步
+│   ├── popup.html
+│   └── popup.js                       # Token 设置弹窗
+├── tests/
+│   └── extension-smoke.test.mjs       # 浏览器端 smoke tests
 └── macos/
     ├── Package.swift                  # SwiftPM，4 个 module，零依赖
     ├── build.sh                       # universal binary → .app bundle → 自签
@@ -51,13 +60,18 @@ swift build -c release --arch arm64 --arch x86_64       # universal 二进制
 open build/BiliCastHelper.app                            # 启动菜单栏 App
 ```
 
-### 用户脚本
+### 用户脚本 / 浏览器扩展
 
 ```bash
-node --check userscript/bilicast-helper.user.js          # 语法检查
+node --check userscript/bilicast-helper.user.js          # 用户脚本语法检查
+node --check extension/background.js                     # 扩展 background 语法检查
+node --check extension/popup.js                          # 扩展 popup 语法检查
+node --test tests/extension-smoke.test.mjs               # manifest / bridge / 注入 smoke tests
 ```
 
-无打包步骤，单文件粘到 Tampermonkey 即可。
+用户脚本无打包步骤，单文件粘到 Tampermonkey 即可。
+
+浏览器扩展无打包步骤，Chrome / Edge 开发者模式选择 `extension/` 目录加载即可。`extension/content.js` 与 `userscript/bilicast-helper.user.js` 需保持同步，改完用户脚本后复制一份到扩展目录并跑 smoke test。
 
 ### 端到端探针（无需电视）
 
@@ -183,9 +197,10 @@ NWConnection 不会被任何外部对象持有，只被回调闭包捕获。**�
 - 单文件，无打包工具
 - 所有 UI 走 Shadow DOM (`#bilicast-host`) 隔离 B 站 CSS
 - 失败用 toast，**不要 alert**
-- token 放 `GM_setValue/GM_getValue`，key `bilicast.token`
-- 本地 API：`http://127.0.0.1:18787`（已加 `@connect 127.0.0.1`）
-- B 站 API：`https://api.bilibili.com/...`（已加 `@connect api.bilibili.com`）
+- Tampermonkey token 放 `GM_setValue/GM_getValue`，key `bilicast.token`
+- 浏览器扩展 token 放 `chrome.storage.local`，通过 `background.js` 消息桥读写同一个 key
+- 本地 API：`http://127.0.0.1:18787`（Tampermonkey 已加 `@connect 127.0.0.1`；扩展已加 host permission）
+- B 站 API：`https://api.bilibili.com/...`（Tampermonkey 已加 `@connect api.bilibili.com`；扩展已加 host permission）
 - 失败有降级链：mp4720 fallback → 失败时清晰错误码 + 用户能看懂的中文提示
 
 ## 常见坑

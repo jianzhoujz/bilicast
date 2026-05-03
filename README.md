@@ -15,7 +15,7 @@
 
 哔哩哔哩网页版没有原生的"投屏到电视"按钮（手机 / 平板 App 才有）。本工具用：
 
-1. 一个 **Tampermonkey 用户脚本**，在 B 站视频页右下角注入"投屏"按钮；
+1. 一个 **浏览器端入口**，可选 Tampermonkey 用户脚本或浏览器扩展，在 B 站视频页右下角注入"投屏"按钮；
 2. 一个 **Mac 菜单栏 App**，本机起 HTTP 控制 API + 局域网视频代理 + DLNA/UPnP 设备扫描和控制。
 
 > 仅用于把当前账号本就有权访问的普通公开视频投到自有局域网设备。**不绕过会员、版权、区域、登录或 DRM 限制**，番剧、付费内容、DRM 内容都会明确提示"暂不支持"。
@@ -52,11 +52,23 @@ brew uninstall --cask bilicast
 
 从 [GitHub Releases](https://github.com/jianzhoujz/bilicast/releases) 下载 `BiliCastHelper-VERSION.dmg`，打开后将 `BiliCastHelper.app` 拖到 `Applications` 快捷方式上。
 
-### 用户脚本
+### 浏览器端入口
+
+二选一安装即可。
+
+#### Tampermonkey 用户脚本
 
 1. 浏览器装 [Tampermonkey](https://www.tampermonkey.net/)
 2. 打开 [`userscript/bilicast-helper.user.js`](userscript/bilicast-helper.user.js) 全文，新建脚本粘贴并保存
 3. 后续脚本更新就重新粘贴一次
+
+#### 浏览器扩展（Chrome / Edge 开发者模式）
+
+1. 打开 `chrome://extensions` 或 `edge://extensions`
+2. 开启"开发者模式"
+3. 点"加载已解压的扩展程序"
+4. 选择仓库里的 [`extension/`](extension/) 目录
+5. 点扩展图标，粘贴并保存菜单栏 App 里的 Pairing Token
 
 ## 首次启动
 
@@ -146,6 +158,9 @@ log stream --predicate 'subsystem == "local.bilicast-helper"' --info --debug
 完整工程速查见 [AGENTS.md](AGENTS.md)，含：仓库布局、常用命令、网络拓扑、模块边界、SSDP / SOAP 实现、ffmpeg 集成、UpdateChecker、踩过的坑、发布流程。
 
 ```bash
+# 浏览器端语法 / 扩展桥接 smoke test
+node --test tests/extension-smoke.test.mjs
+
 cd macos
 
 # 编译
