@@ -10,7 +10,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 APP_NAME="BiliCast"
-APP_VERSION="${APP_VERSION:-${VERSION:-0.4.0}}"
+APP_VERSION="${APP_VERSION:-${VERSION:-$(git describe --tags --abbrev=0 2>/dev/null || echo 0.4.0)}}"
 APP_BUILD="${APP_BUILD:-$APP_VERSION}"
 
 APP_PATH="$ROOT/build/$APP_NAME.app"
