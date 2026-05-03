@@ -62,7 +62,7 @@ public enum SSDP {
             "MAN: \"ssdp:discover\"\r\n" +
             "MX: \(mx)\r\n" +
             "ST: \(target)\r\n" +
-            "USER-AGENT: macOS/\(ProcessInfo.processInfo.operatingSystemVersionString) UPnP/1.1 BiliCastHelper/\(BiliCast.version)\r\n" +
+            "USER-AGENT: macOS/\(ProcessInfo.processInfo.operatingSystemVersionString) UPnP/1.1 BiliCast/\(BiliCast.version)\r\n" +
             "\r\n"
 
         var dst = sockaddr_in()

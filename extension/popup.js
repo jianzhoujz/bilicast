@@ -14,10 +14,10 @@ async function checkHealth() {
     const res = await fetch(LOCAL_API + '/api/health', { credentials: 'omit' });
     const json = await res.json().catch(() => null);
     healthNode.textContent = res.ok && json && json.ok
-      ? `本地服务已连接：${json.data?.app || 'BiliCastHelper'} ${json.data?.version || ''}`.trim()
+      ? `本地服务已连接：${json.data?.app || 'BiliCast'} ${json.data?.version || ''}`.trim()
       : '本地服务响应异常，请确认菜单栏 App 状态。';
   } catch (_) {
-    healthNode.textContent = '未检测到本地服务，请先启动 BiliCastHelper 菜单栏 App。';
+    healthNode.textContent = '未检测到本地服务，请先启动 BiliCast 菜单栏 App。';
   }
 }
 

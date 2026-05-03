@@ -1,4 +1,4 @@
-# BiliCastHelper
+# BiliCast
 
 ![macOS](https://img.shields.io/badge/macOS-13.0%2B-black)
 ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-supported-brightgreen)
@@ -61,9 +61,9 @@ brew uninstall --cask bilicast
 
 ### Manual
 
-Grab `BiliCastHelper-VERSION.dmg` from
+Grab `BiliCast-VERSION.dmg` from
 [GitHub Releases](https://github.com/jianzhoujz/bilicast/releases). Open the
-DMG and drag `BiliCastHelper.app` onto the `Applications` shortcut.
+DMG and drag `BiliCast.app` onto the `Applications` shortcut.
 
 ### Cross-platform / Docker backend (in development)
 
@@ -91,9 +91,14 @@ Install either option.
 #### Tampermonkey userscript
 
 1. Install [Tampermonkey](https://www.tampermonkey.net/) in your browser.
-2. Open [`userscript/bilicast-helper.user.js`](userscript/bilicast-helper.user.js),
-   create a new userscript, paste the entire contents, save.
-3. To update later, paste the new version over the old one.
+2. Click here → **[install latest userscript](https://github.com/jianzhoujz/bilicast/raw/main/userscript/bilicast-helper.user.js)**
+   (Tampermonkey detects the `.user.js` extension and pops the install dialog.)
+3. To upgrade later, click the same link again — Tampermonkey will prompt for
+   the update.
+
+If the one-click install doesn't trigger, fall back to: open
+[the script source](userscript/bilicast-helper.user.js) → copy everything →
+Tampermonkey → New script → paste → save.
 
 #### Browser extension (Chrome / Edge developer mode)
 
@@ -111,20 +116,20 @@ blocked by Gatekeeper with "cannot verify the developer" or "app is damaged".
 If you trust the source:
 
 1. Open `System Settings → Privacy & Security`
-2. Find the "BiliCastHelper was blocked" notice and click `Open Anyway`
+2. Find the "BiliCast was blocked" notice and click `Open Anyway`
 3. Try launching again
 
 If that still doesn't work, remove the quarantine flag manually:
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/BiliCastHelper.app
+xattr -dr com.apple.quarantine /Applications/BiliCast.app
 ```
 
 ## Usage
 
 ### 1. Start the menu bar app
 
-`open -a BiliCastHelper` or launch from Spotlight. A `📺` icon appears in the
+`open -a BiliCast` or launch from Spotlight. A `📺` icon appears in the
 menu bar. Clicking it shows:
 
 - Service running status
@@ -176,13 +181,13 @@ inline.
 
 | Item | Path |
 |---|---|
-| Config (token) | `~/Library/Application Support/BiliCastHelper/config.json`, mode 0600 |
-| Logs | macOS unified logging, subsystem `local.bilicast-helper` |
+| Config (token) | `~/Library/Application Support/BiliCast/config.json`, mode 0600 |
+| Logs | macOS unified logging, subsystem `local.bilicast` |
 
 Tail logs:
 
 ```bash
-log stream --predicate 'subsystem == "local.bilicast-helper"' --info --debug
+log stream --predicate 'subsystem == "local.bilicast"' --info --debug
 ```
 
 ## Troubleshooting
@@ -190,7 +195,7 @@ log stream --predicate 'subsystem == "local.bilicast-helper"' --info --debug
 | Symptom | Likely cause / fix |
 |---|---|
 | No Cast button on Bilibili page | Userscript disabled, or URL doesn't match (bangumi pages show an "unsupported" toast on click) |
-| Red toast "BiliCastHelper not detected" | Menu bar app not running / port 18787 in use |
+| Red toast "BiliCast not detected" | Menu bar app not running / port 18787 in use |
 | `TOKEN_INVALID` | Token mismatch — copy fresh from menu, paste via Tampermonkey menu "Set BiliCast Token" |
 | Empty device list | TV off / TV DLNA disabled / different Wi-Fi / firewall blocks multicast |
 | `UNSUPPORTED_CONTENT` | No castable candidates available; usually paid or DRM content |

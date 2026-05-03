@@ -2,7 +2,7 @@ import Foundation
 import os
 
 public enum Log {
-    private static let subsystem = "local.bilicast-helper"
+    private static let subsystem = "local.bilicast"
     public static let app  = Logger(subsystem: subsystem, category: "app")
     public static let http = Logger(subsystem: subsystem, category: "http")
     public static let dlna = Logger(subsystem: subsystem, category: "dlna")

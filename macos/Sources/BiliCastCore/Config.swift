@@ -39,7 +39,7 @@ public enum ConfigStore {
             for: .applicationSupportDirectory,
             in: .userDomainMask
         ).first!
-        return appSupport.appendingPathComponent("BiliCastHelper", isDirectory: true)
+        return appSupport.appendingPathComponent("BiliCast", isDirectory: true)
     }
 
     public static var configFileURL: URL {

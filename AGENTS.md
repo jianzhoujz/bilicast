@@ -47,7 +47,7 @@ bilicast/
     │   ├── BiliCastHTTP/              # NWListener 控制 API + 流代理
     │   ├── BiliCastDLNA/              # SSDP + 描述解析 + AVTransport SOAP
     │   └── BiliCastApp/               # @main + MenuBarExtra UI + AppState
-    └── build/BiliCastHelper.app       # 构建产物
+    └── build/BiliCast.app       # 构建产物
 ```
 
 ## 常用命令
@@ -65,7 +65,7 @@ pkill -f BiliCastApp                                     # 强制停掉
 # 出 .app
 swift build -c release --arch arm64 --arch x86_64       # universal 二进制
 ./build.sh                                               # 上面 + 组装 .app + 自签
-open build/BiliCastHelper.app                            # 启动菜单栏 App
+open build/BiliCast.app                            # 启动菜单栏 App
 ```
 
 ### 用户脚本 / 浏览器扩展
@@ -109,7 +109,7 @@ GitHub Actions 拆成多条 workflow：
 ### 端到端探针（无需电视）
 
 ```bash
-TOKEN=$(python3 -c "import json; print(json.load(open('$HOME/Library/Application Support/BiliCastHelper/config.json'))['token'])")
+TOKEN=$(python3 -c "import json; print(json.load(open('$HOME/Library/Application Support/BiliCast/config.json'))['token'])")
 
 # 健康
 curl http://127.0.0.1:18787/api/bilicast/health | python3 -m json.tool
@@ -126,7 +126,7 @@ curl -i http://127.0.0.1:18788/stream/cast_xxx/video     # 404 Session Not Found
 ### 看日志
 
 ```bash
-log stream --predicate 'subsystem == "local.bilicast-helper"' --info --debug
+log stream --predicate 'subsystem == "local.bilicast"' --info --debug
 ```
 
 或者打开 Console.app，过滤 subsystem 同上。
@@ -149,8 +149,8 @@ log stream --predicate 'subsystem == "local.bilicast-helper"' --info --debug
 
 | 类型 | 路径 | 备注 |
 |---|---|---|
-| Config（含 token） | `~/Library/Application Support/BiliCastHelper/config.json` | 权限 0600 |
-| 日志 | macOS 统一日志，subsystem `local.bilicast-helper` | 不写文件 |
+| Config（含 token） | `~/Library/Application Support/BiliCast/config.json` | 权限 0600 |
+| 日志 | macOS 统一日志，subsystem `local.bilicast` | 不写文件 |
 
 ## 核心架构事实
 
@@ -361,7 +361,7 @@ ffmpeg -loglevel warning -hide_banner -y \
 
 ### 持久化
 
-`Config.qualityPreference: QualityPreference` 持久到 `~/Library/Application Support/BiliCastHelper/config.json`。Codable 用 `decodeIfPresent` 兼容旧配置：缺这个字段或者解码失败（比如旧版本写过 `"auto"`），都回退到 `.mp4Safe`。
+`Config.qualityPreference: QualityPreference` 持久到 `~/Library/Application Support/BiliCast/config.json`。Codable 用 `decodeIfPresent` 兼容旧配置：缺这个字段或者解码失败（比如旧版本写过 `"auto"`），都回退到 `.mp4Safe`。
 
 ### 控制 API 增加
 
@@ -405,7 +405,7 @@ APP_VERSION=X.Y.Z ./build.sh
 
 # 3. 出 DMG（先复用上一步的 .app；DMG 内含拖拽到 Applications 的指引）
 APP_VERSION=X.Y.Z ./package-dmg.sh
-# → dist/BiliCastHelper-X.Y.Z.dmg + 打印 sha256
+# → dist/BiliCast-X.Y.Z.dmg + 打印 sha256
 
 # 4. 提交 + 打 tag + 推
 cd ..
@@ -414,12 +414,12 @@ git push && git push --tags
 
 # 5. 创建 GitHub Release，上传 DMG
 gh release create vX.Y.Z \
-  macos/dist/BiliCastHelper-X.Y.Z.dmg \
-  --title "BiliCastHelper X.Y.Z" \
+  macos/dist/BiliCast-X.Y.Z.dmg \
+  --title "BiliCast X.Y.Z" \
   --notes-file RELEASE_NOTES.md   # 或 --generate-notes
 
 # 6. 更新 homebrew tap（位于同级目录 ../homebrew-tap）
-SHA=$(shasum -a 256 macos/dist/BiliCastHelper-X.Y.Z.dmg | awk '{print $1}')
+SHA=$(shasum -a 256 macos/dist/BiliCast-X.Y.Z.dmg | awk '{print $1}')
 # 编辑 ../homebrew-tap/Casks/bilicast.rb：
 #   - version "X.Y.Z"
 #   - sha256 "$SHA"
@@ -459,8 +459,8 @@ cask "bilicast" do
   sha256 "<sha256 of DMG>"
 
   url "https://github.com/jianzhoujz/bilicast/releases/download/v#{version}/" \
-      "BiliCastHelper-#{version}.dmg"
-  name "BiliCastHelper"
+      "BiliCast-#{version}.dmg"
+  name "BiliCast"
   desc "Cast Bilibili web videos to DLNA TVs from a macOS menu bar"
   homepage "https://github.com/jianzhoujz/bilicast"
 
@@ -471,13 +471,13 @@ cask "bilicast" do
 
   depends_on macos: ">= :ventura"   # macOS 13+
 
-  app "BiliCastHelper.app"
+  app "BiliCast.app"
 
-  uninstall quit: "local.bilicast-helper"
+  uninstall quit: "local.bilicast"
 
   zap trash: [
-    "~/Library/Application Support/BiliCastHelper",
-    "~/Library/Logs/BiliCastHelper",
+    "~/Library/Application Support/BiliCast",
+    "~/Library/Logs/BiliCast",
   ]
 end
 ```
@@ -498,7 +498,7 @@ end
 ## 给后续 AI 助手的建议
 
 - 改代码前先读 `Package.swift` 看模块划分
-- 改任何网络 / 设备发现行为前，把 `Console.app` 打开过滤 `local.bilicast-helper` 看日志
+- 改任何网络 / 设备发现行为前，把 `Console.app` 打开过滤 `local.bilicast` 看日志
 - 真机联调流程：开 .app → 复制 token → 装/更新用户脚本 → B 站视频页 → 点投屏
 - 不要静默改默认端口 / token 命名 / config 路径 —— 这些是兼容契约
 - 出现"客户端请求超时但服务在 LISTEN"时，第一反应去查 `[weak self]`

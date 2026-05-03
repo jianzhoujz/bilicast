@@ -1,8 +1,9 @@
 import Foundation
 
 public enum BiliCast {
-    public static let appName = "BiliCastHelper"
-    public static let version = "0.3.1"
+    public static let appName = "BiliCast"
+    public static let bundleID = "local.bilicast"
+    public static let version = "0.4.0"
     public static let apiVersion = 1
     public static let controlPort: UInt16 = 18787
     public static let proxyPort: UInt16 = 18788

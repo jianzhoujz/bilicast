@@ -66,7 +66,7 @@ public final class DLNADiscovery: @unchecked Sendable {
     private static func fetchDevice(at location: URL) async -> DLNADevice? {
         var req = URLRequest(url: location)
         req.timeoutInterval = 4
-        req.setValue("BiliCastHelper/\(BiliCast.version) UPnP/1.1", forHTTPHeaderField: "User-Agent")
+        req.setValue("BiliCast/\(BiliCast.version) UPnP/1.1", forHTTPHeaderField: "User-Agent")
         do {
             let (data, response) = try await URLSession.shared.data(for: req)
             guard let http = response as? HTTPURLResponse, http.statusCode == 200 else { return nil }

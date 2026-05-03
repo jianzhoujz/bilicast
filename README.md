@@ -1,4 +1,4 @@
-# BiliCastHelper
+# BiliCast
 
 ![macOS](https://img.shields.io/badge/macOS-13.0%2B-black)
 ![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-supported-brightgreen)
@@ -50,7 +50,7 @@ brew uninstall --cask bilicast
 
 ### 手动安装
 
-从 [GitHub Releases](https://github.com/jianzhoujz/bilicast/releases) 下载 `BiliCastHelper-VERSION.dmg`，打开后将 `BiliCastHelper.app` 拖到 `Applications` 快捷方式上。
+从 [GitHub Releases](https://github.com/jianzhoujz/bilicast/releases) 下载 `BiliCast-VERSION.dmg`，打开后将 `BiliCast.app` 拖到 `Applications` 快捷方式上。
 
 ### 跨平台 / Docker 后端（开发中）
 
@@ -78,8 +78,11 @@ wails build -tags wails
 #### Tampermonkey 用户脚本
 
 1. 浏览器装 [Tampermonkey](https://www.tampermonkey.net/)
-2. 打开 [`userscript/bilicast-helper.user.js`](userscript/bilicast-helper.user.js) 全文，新建脚本粘贴并保存
-3. 后续脚本更新就重新粘贴一次
+2. 点这里 → **[一键安装最新版](https://github.com/jianzhoujz/bilicast/raw/main/userscript/bilicast-helper.user.js)**
+   （Tampermonkey 会自动识别 `.user.js` 并弹安装确认）
+3. 后续升级：重新点同一个链接即可，Tampermonkey 会提示更新
+
+如果一键安装没反应，备用：[查看脚本源码](userscript/bilicast-helper.user.js) → 全文复制 → Tampermonkey 新建脚本 → 粘贴保存。
 
 #### 浏览器扩展（Chrome / Edge 开发者模式）
 
@@ -96,20 +99,20 @@ wails build -tags wails
 如果你确认来源可信，先试：
 
 1. 打开 `系统设置 -> 隐私与安全性`
-2. 看到 BiliCastHelper 被阻止的提示，点 `仍要打开`
+2. 看到 BiliCast 被阻止的提示，点 `仍要打开`
 3. 再启动一次
 
 如果仍然不行，移除 quarantine 标记：
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/BiliCastHelper.app
+xattr -dr com.apple.quarantine /Applications/BiliCast.app
 ```
 
 ## 使用说明
 
 ### 1. 启动 Mac App
 
-`open -a BiliCastHelper` 或从启动台打开。菜单栏会出现 `📺` 图标，点开看到：
+`open -a BiliCast` 或从启动台打开。菜单栏会出现 `📺` 图标，点开看到：
 
 - 服务运行状态
 - 控制 API 地址
@@ -151,13 +154,13 @@ xattr -dr com.apple.quarantine /Applications/BiliCastHelper.app
 
 | 内容 | 路径 |
 |---|---|
-| 配置（含 token） | `~/Library/Application Support/BiliCastHelper/config.json` 权限 0600 |
-| 日志 | macOS 统一日志，subsystem `local.bilicast-helper` |
+| 配置（含 token） | `~/Library/Application Support/BiliCast/config.json` 权限 0600 |
+| 日志 | macOS 统一日志，subsystem `local.bilicast` |
 
 看日志：
 
 ```bash
-log stream --predicate 'subsystem == "local.bilicast-helper"' --info --debug
+log stream --predicate 'subsystem == "local.bilicast"' --info --debug
 ```
 
 ## 故障排查
@@ -165,7 +168,7 @@ log stream --predicate 'subsystem == "local.bilicast-helper"' --info --debug
 | 现象 | 可能原因 / 解决 |
 |---|---|
 | B 站页面没有"投屏"按钮 | 用户脚本未启用 / 没匹配到当前 URL（番剧页第一版只提示不支持） |
-| 红色 toast"未检测到 BiliCastHelper" | 菜单栏 App 没启动 / 18787 端口被占 |
+| 红色 toast"未检测到 BiliCast" | 菜单栏 App 没启动 / 18787 端口被占 |
 | `TOKEN_INVALID` | token 复制错了，去菜单栏重新复制再用 Tampermonkey 菜单"设置 BiliCast Token"重粘 |
 | 设备列表空 | 电视关了 / 电视 DLNA 关了 / 不同 Wi-Fi / 防火墙拦多播 |
 | `UNSUPPORTED_CONTENT` | 当前视频拿不到任何可投候选；可能是会员 / DRM 内容 |

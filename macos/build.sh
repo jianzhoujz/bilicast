@@ -2,11 +2,11 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-APP_NAME="BiliCastHelper"
-EXEC_NAME="BiliCastApp"
-DISPLAY_NAME="BiliCastHelper"
-BUNDLE_ID="local.bilicast-helper"
-APP_VERSION="${APP_VERSION:-0.3.0}"
+APP_NAME="BiliCast"
+EXEC_NAME="BiliCast"
+DISPLAY_NAME="BiliCast"
+BUNDLE_ID="local.bilicast"
+APP_VERSION="${APP_VERSION:-0.4.0}"
 APP_BUILD="${APP_BUILD:-$APP_VERSION}"
 APP_BUILD_TIME="${APP_BUILD_TIME:-$(date '+%Y-%m-%d %H:%M:%S %z')}"
 DEPLOYMENT_TARGET="${DEPLOYMENT_TARGET:-13.0}"

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "BiliCastHelper",
+  "name": "BiliCast",
   "version": "0.3.3",
-  "description": "在 B 站网页视频页注入投屏按钮，调用 Mac 本地 BiliCastHelper 服务投到 DLNA 设备。",
+  "description": "在 B 站网页视频页注入投屏按钮，调用 Mac 本地 BiliCast 服务投到 DLNA 设备。",
   "permissions": ["storage"],
   "host_permissions": [
     "http://127.0.0.1:18787/*",
@@ -24,7 +24,7 @@
     }
   ],
   "action": {
-    "default_title": "BiliCastHelper",
+    "default_title": "BiliCast",
     "default_popup": "popup.html"
   }
 }

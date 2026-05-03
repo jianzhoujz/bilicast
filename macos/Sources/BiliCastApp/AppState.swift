@@ -279,7 +279,7 @@ final class AppState: ObservableObject {
             try ps.start()
             self.proxyServer = ps
 
-            Log.app.info("BiliCastHelper starting; token=\(Log.redact(self.token), privacy: .public) preference=\(self.qualityPreference.rawValue, privacy: .public)")
+            Log.app.info("BiliCast starting; token=\(Log.redact(self.token), privacy: .public) preference=\(self.qualityPreference.rawValue, privacy: .public)")
 
             Task.detached(priority: .userInitiated) {
                 _ = await DLNADiscovery.shared.refresh()

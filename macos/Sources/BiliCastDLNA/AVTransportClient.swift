@@ -65,7 +65,7 @@ public final class AVTransportClient: Sendable {
         req.timeoutInterval = 6
         req.setValue("text/xml; charset=\"utf-8\"", forHTTPHeaderField: "Content-Type")
         req.setValue("\"\(device.avTransportServiceType)#\(action)\"", forHTTPHeaderField: "SOAPACTION")
-        req.setValue("BiliCastHelper/\(BiliCast.version) UPnP/1.1", forHTTPHeaderField: "User-Agent")
+        req.setValue("BiliCast/\(BiliCast.version) UPnP/1.1", forHTTPHeaderField: "User-Agent")
         req.httpBody = Data(body.utf8)
 
         let (data, response) = try await session.data(for: req)

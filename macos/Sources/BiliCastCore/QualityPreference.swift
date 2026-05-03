@@ -53,7 +53,7 @@ public enum QualityPreference: String, Codable, CaseIterable, Sendable {
         switch self {
         case .mp4Safe: return nil
         case .flvTV:   return "实验性档位。建议偶尔用，主用还是标准模式或极清模式。"
-        case .dashRemux: return "电视播放期间不要退出 BiliCastHelper。"
+        case .dashRemux: return "电视播放期间不要退出 BiliCast。"
         }
     }
 }

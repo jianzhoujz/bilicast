@@ -1,9 +1,9 @@
 // ==UserScript==
-// @name         BiliCastHelper
+// @name         BiliCast
 // @namespace    https://github.com/jianzhoujz/bilicast
 // @version      0.3.3
 // @description  在 B 站网页视频页注入"投屏"按钮，调用 Mac 本地服务把视频投到 DLNA 设备。三档清晰度（MP4/FLV/DASH-remux）。
-// @author       BiliCastHelper
+// @author       BiliCast
 // @match        https://www.bilibili.com/video/*
 // @match        https://www.bilibili.com/list/*
 // @match        https://www.bilibili.com/bangumi/play/*
@@ -311,7 +311,7 @@
     try {
       shadowRoot = host.attachShadow({ mode: 'open' });
     } catch (e) {
-      console.warn('[BiliCastHelper] attachShadow failed, falling back to plain DOM', e);
+      console.warn('[BiliCast] attachShadow failed, falling back to plain DOM', e);
       useShadow = false;
       host.remove();
       return ensurePlainHost();
@@ -798,7 +798,7 @@
   async function ensureToken() {
     const cur = await getLocalToken();
     if (cur) return cur;
-    const v = prompt('请粘贴 BiliCastHelper 菜单栏里的 Pairing Token：', '');
+    const v = prompt('请粘贴 BiliCast 菜单栏里的 Pairing Token：', '');
     if (!v) return '';
     const trimmed = v.trim();
     await setLocalToken(trimmed);
@@ -819,7 +819,7 @@
 
       const health = await requestLocalApi('/api/health');
       if (!health.ok || health.data?.ok !== true) {
-        showToast('未检测到 BiliCastHelper，请先启动菜单栏 App。', 'error');
+        showToast('未检测到 BiliCast，请先启动菜单栏 App。', 'error');
         return;
       }
 
@@ -903,7 +903,7 @@
     btn.innerHTML = '<span class="icon">' + CAST_ICON_SVG + '</span><span class="label">投屏</span>';
     btn.addEventListener('click', onCastClick);
     root.appendChild(btn);
-    console.info('[BiliCastHelper] cast button injected (shadow=' + useShadow + ')');
+    console.info('[BiliCast] cast button injected (shadow=' + useShadow + ')');
     return true;
   }
 
@@ -937,7 +937,7 @@
     GM_registerMenuCommand('查看候选诊断', async () => {
       const candidates = await gatherCandidates();
       const summary = summarizeCandidates(candidates);
-      console.info('[BiliCastHelper] candidates:', candidates);
+      console.info('[BiliCast] candidates:', candidates);
       showToast(`候选采集：${summary}\n详见控制台。`, 'info');
     });
   } catch (_) {}
@@ -948,7 +948,7 @@
   function diag(msg) {
     if (msg !== lastDiag) {
       lastDiag = msg;
-      console.info('[BiliCastHelper] ' + msg);
+      console.info('[BiliCast] ' + msg);
     }
   }
 
@@ -962,7 +962,7 @@
     try {
       injectCastButton();
     } catch (e) {
-      console.warn('[BiliCastHelper] inject error', e);
+      console.warn('[BiliCast] inject error', e);
     }
   }
 
@@ -1000,7 +1000,7 @@
     }
   }
 
-  console.info('[BiliCastHelper] v0.3.3 loaded; pathname=' + location.pathname +
+  console.info('[BiliCast] v0.3.3 loaded; pathname=' + location.pathname +
                '; isVideoPage=' + isBilibiliVideoPage() +
                '; isBangumiPage=' + isBangumiPage());
   bootstrap();

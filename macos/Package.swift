@@ -7,7 +7,7 @@ let package = Package(
         .macOS(.v13)
     ],
     products: [
-        .executable(name: "BiliCastApp", targets: ["BiliCastApp"]),
+        .executable(name: "BiliCast", targets: ["BiliCastApp"]),
         .library(name: "BiliCastCore", targets: ["BiliCastCore"]),
         .library(name: "BiliCastHTTP", targets: ["BiliCastHTTP"]),
         .library(name: "BiliCastDLNA", targets: ["BiliCastDLNA"]),
