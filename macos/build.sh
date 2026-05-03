@@ -160,6 +160,8 @@ cat > "$CONTENTS/Info.plist" <<PLIST
   <string>13.0</string>
   <key>NSHighResolutionCapable</key>
   <true/>
+  <key>LSUIElement</key>
+  <true/>
 </dict>
 </plist>
 PLIST
