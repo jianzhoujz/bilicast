@@ -38,7 +38,9 @@ ln -s /Applications "$STAGE_DIR/Applications"
 # root-level alias.
 cp "$DMG_ASSET_DIR/background.tiff" "$STAGE_DIR/.background.tiff"
 cp "$DMG_ASSET_DIR/background.tiff" "$STAGE_DIR/.background/background.tiff"
-cp "$DMG_ASSET_DIR/VolumeIcon.icns" "$STAGE_DIR/.VolumeIcon.icns"
+if [[ -f "$DMG_ASSET_DIR/VolumeIcon.icns" ]]; then
+  cp "$DMG_ASSET_DIR/VolumeIcon.icns" "$STAGE_DIR/.VolumeIcon.icns"
+fi
 cp "$DMG_ASSET_DIR/DS_Store" "$STAGE_DIR/.DS_Store"
 
 hdiutil create \
