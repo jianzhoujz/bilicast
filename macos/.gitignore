@@ -1,0 +1,9 @@
+.build/
+build/
+dist/
+.swiftpm/
+*.xcodeproj/
+*.xcworkspace/
+DerivedData/
+.DS_Store
+Resources/ffmpeg
