@@ -1,0 +1,79 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, "feature/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  browser-clients:
+    name: Browser client smoke tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Run userscript / extension smoke tests
+        run: |
+          node --check userscript/bilicast-helper.user.js
+          node --check extension/content.js
+          node --check extension/background.js
+          node --check extension/popup.js
+          node --test tests/extension-smoke.test.mjs
+
+  crossplatform-backend:
+    name: Cross-platform backend checks
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: crossplatform
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: crossplatform/go.mod
+          cache-dependency-path: crossplatform/go.sum
+
+      - name: Go vet
+        run: go vet ./cmd/... ./internal/...
+
+      - name: Unit tests
+        run: go test -count=1 -timeout 600s ./...
+
+      - name: Build daemon
+        run: go build ./cmd/bilicastd
+
+      - name: Install Linux Wails dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.0-dev
+
+      - name: Wails shell compile check
+        run: go test -tags wails .
+
+  docker-build:
+    name: Docker build smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: crossplatform/Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -16,11 +16,11 @@
 哔哩哔哩网页版没有原生的"投屏到电视"按钮（手机 / 平板 App 才有）。本工具用：
 
 1. 一个 **浏览器端入口**，可选 Tampermonkey 用户脚本或浏览器扩展，在 B 站视频页右下角注入"投屏"按钮；
-2. 一个 **Mac 菜单栏 App**，本机起 HTTP 控制 API + 局域网视频代理 + DLNA/UPnP 设备扫描和控制。
+2. 一个 **本地投屏后端**：当前稳定版是 Mac 菜单栏 App；`crossplatform/` 分支提供 Wails2 跨平台后端、桌面客户端和 Docker daemon 模式。
 
 > 仅用于把当前账号本就有权访问的普通公开视频投到自有局域网设备。**不绕过会员、版权、区域、登录或 DRM 限制**，番剧、付费内容、DRM 内容都会明确提示"暂不支持"。
 
-支持 macOS 13+，Apple Silicon 和 Intel 都行。
+稳定版支持 macOS 13+，Apple Silicon 和 Intel 都行。跨平台后端路线见 [`crossplatform/README.md`](crossplatform/README.md)，当前目标先覆盖 Windows / Linux Wails2 桌面端与 Docker 部署。
 
 ### 三档清晰度
 
@@ -51,6 +51,25 @@ brew uninstall --cask bilicast
 ### 手动安装
 
 从 [GitHub Releases](https://github.com/jianzhoujz/bilicast/releases) 下载 `BiliCastHelper-VERSION.dmg`，打开后将 `BiliCastHelper.app` 拖到 `Applications` 快捷方式上。
+
+### 跨平台 / Docker 后端（开发中）
+
+```bash
+cd crossplatform
+
+# Go daemon，本地或服务器运行
+go run ./cmd/bilicastd
+
+# Docker daemon
+docker compose up --build
+# 后台控制页：http://127.0.0.1:18787/console
+
+# Wails2 桌面端
+go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
+wails build -tags wails
+```
+
+跨平台后端复用同一套 HTTP API，可被 Tampermonkey 用户脚本、浏览器扩展和 HTTP 控制台使用；所有 Wails 版本的控制页面统一走 `http://127.0.0.1:18787/console`，控制台使用专属 API 前缀 `/api/bilicast` 并自动读取本机 token；Wails 桌面端当前聚焦 Windows / Linux，托盘/原生菜单负责显示、隐藏主窗口与退出应用，首页跳转到这个控制台。
 
 ### 浏览器端入口
 
@@ -160,6 +179,16 @@ log stream --predicate 'subsystem == "local.bilicast-helper"' --info --debug
 ```bash
 # 浏览器端语法 / 扩展桥接 smoke test
 node --test tests/extension-smoke.test.mjs
+
+# 跨平台后端测试
+(cd crossplatform && go test ./... && go test -tags wails .)
+
+# CI 覆盖
+# - PR Checks：浏览器脚本、Go 后端、Docker smoke
+# - Wails Build：Windows amd64、Linux amd64
+# - Native macOS App Build：现有 Swift 原生 App universal zip / dmg
+# - Docker Image CI：GHCR 多架构镜像
+# - Release：自动打 tag、发 GitHub Release、触发桌面端、原生 macOS App 与 Docker 构建
 
 cd macos
 

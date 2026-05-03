@@ -1,0 +1,157 @@
+name: Wails Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Version tag or ref name"
+        required: false
+        default: ""
+        type: string
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows amd64
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: crossplatform
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: crossplatform/go.mod
+          cache-dependency-path: crossplatform/go.sum
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
+
+      - name: Build Wails app
+        run: wails build -tags wails -platform windows/amd64 -clean
+
+      - name: Package executable
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path ..\bin | Out-Null
+          $exe = Get-ChildItem build\bin -Filter *.exe | Select-Object -First 1
+          if (-not $exe) {
+            Write-Error "Windows executable not found"
+            Get-ChildItem build\bin -Recurse -ErrorAction SilentlyContinue
+            exit 1
+          }
+          Copy-Item $exe.FullName ..\bin\BiliCastHelper-windows-amd64.exe
+          Get-FileHash -Algorithm SHA256 ..\bin\BiliCastHelper-windows-amd64.exe | ForEach-Object { $_.Hash.ToLower() } | Out-File -Encoding ascii ..\bin\BiliCastHelper-windows-amd64.exe.sha256
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wails-windows-amd64
+          path: |
+            bin/BiliCastHelper-windows-amd64.exe
+            bin/BiliCastHelper-windows-amd64.exe.sha256
+
+  build-linux:
+    name: Build Linux amd64
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: crossplatform
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: crossplatform/go.mod
+          cache-dependency-path: crossplatform/go.sum
+
+      - name: Install Linux Wails dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.0-dev
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
+
+      - name: Build Wails app
+        run: wails build -tags wails -platform linux/amd64 -clean
+
+      - name: Package binary
+        run: |
+          set -euo pipefail
+          mkdir -p ../bin
+          BIN=$(find build/bin -maxdepth 1 -type f -perm -111 | head -n 1)
+          if [ -z "$BIN" ]; then
+            echo "Linux binary not found" >&2
+            find build/bin -maxdepth 2 -print
+            exit 1
+          fi
+          cp "$BIN" ../bin/BiliCastHelper-linux-amd64
+          chmod +x ../bin/BiliCastHelper-linux-amd64
+          (cd ../bin && tar -czf BiliCastHelper-linux-amd64.tar.gz BiliCastHelper-linux-amd64)
+          sha256sum ../bin/BiliCastHelper-linux-amd64.tar.gz | awk '{print $1}' > ../bin/BiliCastHelper-linux-amd64.tar.gz.sha256
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wails-linux-amd64
+          path: |
+            bin/BiliCastHelper-linux-amd64.tar.gz
+            bin/BiliCastHelper-linux-amd64.tar.gz.sha256
+
+  create-release-assets:
+    name: Attach Wails artifacts to release
+    if: startsWith(github.ref, 'refs/tags/') || inputs.tag != ''
+    needs: [build-windows, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          pattern: wails-*
+          merge-multiple: true
+
+      - name: Generate latest.json
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+          cp artifacts/* release-assets/
+          TAG="${{ inputs.tag || github.ref_name }}"
+          BASE_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}"
+          cat > release-assets/latest.json <<JSON
+          {
+            "version": "${TAG}",
+            "release_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "files": {
+              "windows-amd64": { "name": "BiliCastHelper-windows-amd64.exe", "url": "${BASE_URL}/BiliCastHelper-windows-amd64.exe" },
+              "linux-amd64": { "name": "BiliCastHelper-linux-amd64.tar.gz", "url": "${BASE_URL}/BiliCastHelper-linux-amd64.tar.gz" }
+            }
+          }
+          JSON
+          ls -lh release-assets
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          files: release-assets/*
+          append_body: true
+          body: |
+
+            ---
+
+            ## Wails desktop builds
+
+            - Windows: `BiliCastHelper-windows-amd64.exe`
+            - Linux: `BiliCastHelper-linux-amd64.tar.gz`
+            - Every artifact includes a `.sha256` checksum file.

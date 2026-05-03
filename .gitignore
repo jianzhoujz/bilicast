@@ -6,7 +6,8 @@
 ._*
 
 # Custom folder icons
-Icon
+Icon
+
 
 # Volume root files
 .DocumentRevisions-V100
@@ -47,6 +48,11 @@ build/Release
 out/
 .nuxt
 
+# Wails2 vendored frontend shell for the cross-platform backend
+!crossplatform/frontend/
+!crossplatform/frontend/dist/
+!crossplatform/frontend/dist/**
+
 # dotenv environment variable files
 .env
 .env.local
@@ -83,3 +89,7 @@ playground.xcworkspace
 
 # Swift Package Manager
 # Package.resolved
+
+### Cross-platform backend
+crossplatform/bilicastd
+crossplatform/build/

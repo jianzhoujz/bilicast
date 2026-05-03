@@ -1,0 +1,13 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "BiliCastHelper",
+  "outputfilename": "BiliCastHelper",
+  "frontend:install": "echo frontend already vendored",
+  "frontend:build": "echo using frontend/dist",
+  "frontend:dev:watcher": "echo using frontend/dist",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "jianzhoujz",
+    "email": ""
+  }
+}

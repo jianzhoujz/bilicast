@@ -1,0 +1,21 @@
+services:
+  bilicastd:
+    build:
+      context: ..
+      dockerfile: crossplatform/Dockerfile
+    ports:
+      # Control API is published on host loopback only; browser clients call localhost.
+      - "127.0.0.1:18787:18787"
+      # Stream proxy is LAN-facing so TVs can fetch /stream/<sessionId>/video.
+      - "18788:18788"
+    environment:
+      BILICAST_CONTROL_ADDR: 0.0.0.0:18787
+      BILICAST_PROXY_ADDR: 0.0.0.0:18788
+      # Required: LAN address TVs can reach, for example 192.168.1.10:18788.
+      BILICAST_PUBLIC_HOST: ${BILICAST_PUBLIC_HOST:?Set BILICAST_PUBLIC_HOST to your LAN-IP:18788}
+      # Optional manual DLNA devices for container deployments.
+      # BILICAST_DEVICES_JSON: '[{"id":"tv","name":"Living Room TV","avTransportControlURL":"http://192.168.1.20:1400/MediaRenderer/AVTransport/Control"}]'
+    volumes:
+      - bilicast-data:/data
+volumes:
+  bilicast-data:
