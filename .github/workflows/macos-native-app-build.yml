@@ -1,0 +1,113 @@
+name: Native macOS App Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Version tag or ref name"
+        required: false
+        default: ""
+        type: string
+  pull_request:
+    branches: [main]
+    paths:
+      - "macos/**"
+      - ".github/workflows/macos-native-app-build.yml"
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-native-macos-app:
+    name: Build native Swift macOS app
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: macos
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${{ inputs.tag || github.ref_name }}"
+          if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            VERSION="${TAG#v}"
+          else
+            VERSION="0.0.0-ci"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved native macOS app version: $VERSION"
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Build native app bundle
+        env:
+          APP_VERSION: ${{ steps.version.outputs.version }}
+          APP_BUILD: ${{ github.run_number }}
+        run: ./build.sh
+
+      - name: Package app zip and simple dmg
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p ../bin dist
+          test -x build/BiliCastHelper.app/Contents/Resources/ffmpeg
+          ditto -c -k --sequesterRsrc --keepParent build/BiliCastHelper.app "../bin/BiliCastHelper-${VERSION}-macOS-universal.zip"
+          shasum -a 256 "../bin/BiliCastHelper-${VERSION}-macOS-universal.zip" | awk '{print $1}' > "../bin/BiliCastHelper-${VERSION}-macOS-universal.zip.sha256"
+
+          rm -rf build/native-dmg-stage
+          mkdir -p build/native-dmg-stage
+          cp -R build/BiliCastHelper.app build/native-dmg-stage/
+
+          hdiutil create \
+            -volname "BiliCastHelper" \
+            -srcfolder build/native-dmg-stage \
+            -ov \
+            -format UDZO \
+            "../bin/BiliCastHelper-${VERSION}.dmg"
+          shasum -a 256 "../bin/BiliCastHelper-${VERSION}.dmg" | awk '{print $1}' > "../bin/BiliCastHelper-${VERSION}.dmg.sha256"
+
+          ls -lh ../bin
+
+      - name: Upload native macOS artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-macos-universal
+          path: |
+            bin/BiliCastHelper-*-macOS-universal.zip
+            bin/BiliCastHelper-*-macOS-universal.zip.sha256
+            bin/BiliCastHelper-*.dmg
+            bin/BiliCastHelper-*.dmg.sha256
+
+      - name: Attach native macOS artifacts to release
+        if: startsWith(github.ref, 'refs/tags/') || inputs.tag != ''
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          files: |
+            bin/BiliCastHelper-*-macOS-universal.zip
+            bin/BiliCastHelper-*-macOS-universal.zip.sha256
+            bin/BiliCastHelper-*.dmg
+            bin/BiliCastHelper-*.dmg.sha256
+          append_body: true
+          body: |
+
+            ---
+
+            ## Native macOS app
+
+            - `BiliCastHelper-VERSION.dmg`
+            - `BiliCastHelper-VERSION-macOS-universal.zip`
+            - SHA256 checksum files are included for both artifacts.

@@ -10,6 +10,7 @@
 - `userscript/` —— Tampermonkey 用户脚本（B 站页面注入"投屏"按钮、抽流地址）
 - `extension/` —— 浏览器扩展（Chrome / Edge MV3），复用同一份内容脚本能力，通过 background bridge 做跨域请求与 token 存储
 - `macos/` —— 纯 Swift 写的 macOS 菜单栏 App（本地 HTTP 控制 API + 流代理 + DLNA 控制）
+- `crossplatform/` —— Wails2 + Go 跨平台后端路线，支持 Wails 桌面客户端、Go daemon、Docker 部署
 
 **没有 Xcode 工程文件、没有外部依赖、纯 SwiftPM + bash。** 跟 `Projects/demo/input-indicator` 同一种工程风格。
 
@@ -30,6 +31,13 @@ bilicast/
 │   └── popup.js                       # Token 设置弹窗
 ├── tests/
 │   └── extension-smoke.test.mjs       # 浏览器端 smoke tests
+├── crossplatform/
+│   ├── internal/backend/              # 跨平台 Go 后端：API、token/config、proxy、DLNA SOAP、candidate pick
+│   ├── cmd/bilicastd/                 # headless daemon / Docker 入口
+│   ├── frontend/dist/                 # Wails2 内置 UI 静态文件
+│   ├── Dockerfile
+│   ├── docker-compose.yml
+│   └── wails.json
 └── macos/
     ├── Package.swift                  # SwiftPM，4 个 module，零依赖
     ├── build.sh                       # universal binary → .app bundle → 自签
@@ -73,17 +81,42 @@ node --test tests/extension-smoke.test.mjs               # manifest / bridge / �
 
 浏览器扩展无打包步骤，Chrome / Edge 开发者模式选择 `extension/` 目录加载即可。`extension/content.js` 与 `userscript/bilicast-helper.user.js` 需保持同步，改完用户脚本后复制一份到扩展目录并跑 smoke test。
 
+### 跨平台后端
+
+```bash
+cd crossplatform
+
+go test ./...                         # 后端单测 + API/proxy smoke
+go build ./cmd/bilicastd              # daemon 构建
+go test -tags wails .                 # Wails2 绑定编译检查
+go run ./cmd/bilicastd
+```
+
+Wails2 构建：`wails build -tags wails`。Wails 桌面端当前聚焦 Windows / Linux，通过 `BuildShellMenu(app)` 注册托盘或原生应用菜单语义；托盘/原生菜单提供显示、隐藏主窗口与退出应用。所有 Wails 版本使用新的本地 HTTP API 服务作为控制端，Wails 首页只跳转到 `bilicastd` 的 `/console`。
+
+Docker：`cd crossplatform && docker compose up --build`。compose 只把控制 API 发布到宿主机 `127.0.0.1:18787`，流代理 `18788` 面向局域网；Docker/daemon 后台控制页是 `http://127.0.0.1:18787/console`，canonical API 前缀是 `/api/bilicast`；容器部署必须设置 `BILICAST_PUBLIC_HOST=<LAN-IP>:18788`，需要固定设备时用 `BILICAST_DEVICES_JSON` 注入 DLNA renderer。
+
+### GitHub Actions CI
+
+GitHub Actions 拆成多条 workflow：
+
+- `.github/workflows/pr-checks.yml`：PR / feature 分支检查，覆盖浏览器脚本、crossplatform Go 后端、Docker build smoke。
+- `.github/workflows/ci-wails-build.yml`：Wails2 桌面端自动构建，产出 Windows amd64 exe、Linux amd64 tar.gz 与 sha256。
+- `.github/workflows/macos-native-app-build.yml`：现有 Swift 原生 macOS App 自动打包，产出 universal zip / dmg 与 sha256；这是原生 App，和 Wails2 macOS 无关。
+- `.github/workflows/ci-docker-build.yml`：Docker 多架构镜像构建，tag / release 时推送 GHCR。
+- `.github/workflows/release.yml`：手动发版入口，自动解析/创建 tag、创建 Release，并 fan-out 调用 Wails、原生 macOS App 与 Docker 构建。
+
 ### 端到端探针（无需电视）
 
 ```bash
 TOKEN=$(python3 -c "import json; print(json.load(open('$HOME/Library/Application Support/BiliCastHelper/config.json'))['token'])")
 
 # 健康
-curl http://127.0.0.1:18787/api/health | python3 -m json.tool
+curl http://127.0.0.1:18787/api/bilicast/health | python3 -m json.tool
 
 # 设备
-curl -H "X-BiliCast-Token: $TOKEN" http://127.0.0.1:18787/api/devices | python3 -m json.tool
-curl -X POST -H "X-BiliCast-Token: $TOKEN" http://127.0.0.1:18787/api/devices/refresh
+curl -H "X-BiliCast-Token: $TOKEN" http://127.0.0.1:18787/api/bilicast/devices | python3 -m json.tool
+curl -X POST -H "X-BiliCast-Token: $TOKEN" http://127.0.0.1:18787/api/bilicast/devices/refresh
 
 # 代理：拒绝所有非 session 路径
 curl -i http://127.0.0.1:18788/                          # 404

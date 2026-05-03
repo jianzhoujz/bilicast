@@ -21,15 +21,16 @@ tablet apps do. This project adds one with two pieces:
 
 1. A **browser-side entry point** — either a Tampermonkey userscript or a
    browser extension — that injects a Cast button on every Bilibili video page;
-2. A **macOS menu bar app** that runs a local HTTP control API, a LAN-facing
-   stream proxy, and a DLNA / UPnP discovery + control client.
+2. A **local casting backend**: the stable track is the macOS menu bar app;
+   `crossplatform/` adds the Wails2 cross-platform backend, desktop client,
+   and Docker daemon mode.
 
 > This tool only casts public videos that the signed-in user already has
 > permission to watch. **It does not bypass paywalls, region locks, member
 > content, DRM, or login.** Bangumi, members-only, and DRM-protected content
 > show an explicit "unsupported" toast.
 
-Runs on macOS 13+, both Apple Silicon and Intel.
+The stable track runs on macOS 13+, both Apple Silicon and Intel. The cross-platform backend track is documented in [`crossplatform/README.md`](crossplatform/README.md) and currently targets Windows / Linux Wails2 desktop builds plus Docker deployments.
 
 ### Three quality tiers
 
@@ -63,6 +64,25 @@ brew uninstall --cask bilicast
 Grab `BiliCastHelper-VERSION.dmg` from
 [GitHub Releases](https://github.com/jianzhoujz/bilicast/releases). Open the
 DMG and drag `BiliCastHelper.app` onto the `Applications` shortcut.
+
+### Cross-platform / Docker backend (in development)
+
+```bash
+cd crossplatform
+
+# Go daemon for local or server use
+go run ./cmd/bilicastd
+
+# Docker daemon
+docker compose up --build
+# Console: http://127.0.0.1:18787/console
+
+# Wails2 desktop app
+go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
+wails build -tags wails
+```
+
+The cross-platform backend keeps the same HTTP API and can be used by the Tampermonkey userscript, browser extension, and HTTP console. Every Wails build uses `http://127.0.0.1:18787/console` for control pages, and that console uses the dedicated API prefix `/api/bilicast` with local token bootstrap. The Wails desktop client currently focuses on Windows / Linux; the tray/native menu shows or hides the main window and can quit the app, while the Wails home page redirects to that console.
 
 ### Browser-side entry point
 
@@ -186,6 +206,16 @@ known pitfalls, release workflow.
 ```bash
 # browser-side syntax / extension bridge smoke test
 node --test tests/extension-smoke.test.mjs
+
+# cross-platform backend tests
+(cd crossplatform && go test ./... && go test -tags wails .)
+
+# CI coverage
+# - PR Checks: browser scripts, Go backend, Docker smoke
+# - Wails Build: Windows amd64, Linux amd64
+# - Native macOS App Build: existing Swift native app universal zip / dmg
+# - Docker Image CI: multi-arch GHCR image
+# - Release: tag creation, GitHub Release, desktop, native macOS app, and Docker build fan-out
 
 cd macos
 

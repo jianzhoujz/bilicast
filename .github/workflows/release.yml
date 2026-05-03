@@ -1,0 +1,125 @@
+name: Release
+
+run-name: Release ${{ inputs.version != '' && inputs.version || 'auto' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag, for example v0.1.0. Leave empty to auto-increment patch."
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    name: Create release tag
+    runs-on: ubuntu-latest
+    outputs:
+      resolved_version: ${{ steps.resolve-version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: resolve-version
+        shell: bash
+        run: |
+          set -euo pipefail
+          INPUT_VERSION="${{ inputs.version }}"
+          INPUT_VERSION="${INPUT_VERSION//[[:space:]]/}"
+          if [[ -n "$INPUT_VERSION" ]]; then
+            VERSION="$INPUT_VERSION"
+          else
+            git fetch --tags --force
+            LAST_TAG=$(git tag --list --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)
+            if [[ -z "$LAST_TAG" ]]; then
+              VERSION="v0.0.1"
+            else
+              PART="${LAST_TAG#v}"
+              IFS='.' read -r MAJOR MINOR PATCH <<< "$PART"
+              VERSION="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+            fi
+          fi
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version: $VERSION" >&2
+            exit 1
+          fi
+          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "Tag already exists: $VERSION" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $VERSION" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Sync native app version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.resolve-version.outputs.version }}"
+          APP_VERSION="${VERSION#v}"
+          APP_VERSION="$APP_VERSION" python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+          app_version = os.environ['APP_VERSION']
+          p = Path('macos/Sources/BiliCastCore/Version.swift')
+          s = p.read_text()
+          s = re.sub(r'public static let version = "[^"]+"', f'public static let version = "{app_version}"', s)
+          p.write_text(s)
+          PY
+          if ! git diff --quiet -- macos/Sources/BiliCastCore/Version.swift; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add macos/Sources/BiliCastCore/Version.swift
+            git commit -m "chore: release $VERSION"
+            git push origin HEAD:${GITHUB_REF_NAME}
+          fi
+
+      - name: Create and push tag
+        run: |
+          VERSION="${{ steps.resolve-version.outputs.version }}"
+          git tag "$VERSION"
+          git push origin "$VERSION"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.resolve-version.outputs.version }}
+          name: ${{ steps.resolve-version.outputs.version }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+
+  docker:
+    name: Build Docker image
+    needs: release
+    uses: ./.github/workflows/ci-docker-build.yml
+    with:
+      tag: ${{ needs.release.outputs.resolved_version }}
+    permissions:
+      contents: read
+      packages: write
+
+  wails:
+    name: Build Wails desktop artifacts
+    needs: release
+    uses: ./.github/workflows/ci-wails-build.yml
+    with:
+      tag: ${{ needs.release.outputs.resolved_version }}
+    permissions:
+      contents: write
+
+  native-macos:
+    name: Build native macOS app
+    needs: release
+    uses: ./.github/workflows/macos-native-app-build.yml
+    with:
+      tag: ${{ needs.release.outputs.resolved_version }}
+    permissions:
+      contents: write
