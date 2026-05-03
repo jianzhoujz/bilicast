@@ -81,7 +81,7 @@ node --test tests/extension-smoke.test.mjs               # manifest / bridge / �
 
 用户脚本无打包步骤，单文件粘到 Tampermonkey 即可。
 
-浏览器扩展无打包步骤，Chrome / Edge 开发者模式选择 `extension/` 目录加载即可。`extension/content.js` 与 `userscript/bilicast-helper.user.js` 需保持同步，改完用户脚本后复制一份到扩展目录并跑 smoke test。
+浏览器扩展无打包步骤，Chrome / Edge 开发者模式选择 `extension/` 目录加载即可。**`extension/content.js` 与 `userscript/bilicast-helper.user.js` 需保持同步**——改完用户脚本后必须把内容复制一份到 `extension/content.js`，然后跑 smoke test 验证。
 
 ### 跨平台后端
 
@@ -302,7 +302,7 @@ Go 跨平台后端（`crossplatform/pkg/backend/ssdp.go`）实现了完全相同
 | 9 检查更新 + Release 流程 | ✅ | `UpdateChecker.swift` HEAD `releases/latest`；`package-dmg.sh` → DMG → `gh release create`；homebrew tap cask |
 | 10 Go 跨平台后端 SSDP | ✅ | `crossplatform/pkg/backend/ssdp.go`，从 Swift 端照搬，双 ST 并行 M-SEARCH，零外部依赖 |
 | 11 macOS Swift 端瘦身 | ✅ | `BackendClient.swift` HTTP Client 层，Swift 端删除 ~2000 行业务逻辑，改为通过 bilicastd 子进程通信 |
-| 12 用户脚本 token 失效检测 | ✅ | 设备为空时自动调 `/api/pairing/status` 检查 token；设备面板增加"设置 Token"按钮 |
+| 12 用户脚本 token 失效检测 | ✅ | 设备为空时自动调 `/api/pairing/status` 检查 token；设备面板增加"设置 Token"按钮；token 失效时自动清除旧 token 并提示用户重新输入 |
 
 ## Phase 8 实现速查
 

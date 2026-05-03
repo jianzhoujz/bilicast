@@ -125,10 +125,12 @@ else
 fi
 
 # --- App icon ---
-if [[ -f "$ROOT/packaging/dmg/VolumeIcon.icns" ]]; then
-  cp "$ROOT/packaging/dmg/VolumeIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
-elif [[ -f "$ROOT/Resources/AppIcon.icns" ]]; then
+# Always use the high-quality icon from Resources/ (3.1 MB, 16-bit P3)
+# NOT the DMG volume icon — that's lower quality and only for the DMG background
+if [[ -f "$ROOT/Resources/AppIcon.icns" ]]; then
   cp "$ROOT/Resources/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
+else
+  echo "  WARNING: AppIcon.icns not found — app will have default icon" >&2
 fi
 
 # --- Info.plist ---
