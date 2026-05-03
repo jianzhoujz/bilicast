@@ -32,7 +32,7 @@ bilicast/
 ├── tests/
 │   └── extension-smoke.test.mjs       # 浏览器端 smoke tests
 ├── crossplatform/
-│   ├── internal/backend/              # 跨平台 Go 后端：API、token/config、proxy、DLNA SOAP、candidate pick
+│   ├── pkg/backend/                   # 跨平台 Go 后端：API、token/config、proxy、DLNA SOAP、candidate pick、SSDP
 │   ├── cmd/bilicastd/                 # headless daemon / Docker 入口
 │   ├── frontend/dist/                 # Wails2 内置 UI 静态文件
 │   ├── Dockerfile
@@ -40,13 +40,15 @@ bilicast/
 │   └── wails.json
 └── macos/
     ├── Package.swift                  # SwiftPM，4 个 module，零依赖
-    ├── build.sh                       # universal binary → .app bundle → 自签
+    ├── build.sh                       # 构建 Go 后端 + Swift 端 → .app bundle → 自签
+    ├── fetch-ffmpeg.sh                # ffmpeg 下载脚本（缓存到 lib/）
+    ├── lib/ffmpeg                     # ffmpeg universal binary（125 MB，Git 管理）
     ├── .gitignore                     # 忽略 .build/ build/
     ├── Sources/
     │   ├── BiliCastCore/              # 常量、错误码、token、config、log、网卡
-    │   ├── BiliCastHTTP/              # NWListener 控制 API + 流代理
-    │   ├── BiliCastDLNA/              # SSDP + 描述解析 + AVTransport SOAP
-    │   └── BiliCastApp/               # @main + MenuBarExtra UI + AppState
+    │   ├── BiliCastHTTP/              # BackendClient（HTTP 调用 bilicastd 子进程）+ 流代理
+    │   ├── BiliCastDLNA/              # SSDP + 描述解析 + AVTransport SOAP（保留，不再被 BiliCastApp 依赖）
+    │   └── BiliCastApp/               # @main + MenuBarExtra UI + AppState（管理 bilicastd 子进程）
     └── build/BiliCast.app       # 构建产物
 ```
 
@@ -183,6 +185,8 @@ NWConnection 不会被任何外部对象持有，只被回调闭包捕获。**�
 - 描述 XML 用 `XMLParser` 走 SAX，**只**取顶层 `<device>` 的 friendlyName/UDN/serviceList，忽略 `<deviceList>` 里的嵌入设备
 - AVTransport 的 service type（可能是 `:1` `:2` `:3`）从描述里取，保留进 `DLNADevice.avTransportServiceType`，SOAP 调用时用真实版本号
 
+Go 跨平台后端（`crossplatform/pkg/backend/ssdp.go`）实现了完全相同的 SSDP 逻辑：M-SEARCH 双发送（150ms 间隔）、双 ST 并行搜索、LOCATION 去重、SAX 流式解析 device description XML、相对/绝对 controlURL 解析，零外部依赖。`RefreshDevices()` 先 SSDP 扫描（3 秒超时），扫描不到 fallback 到 `BILICAST_DEVICES_JSON` 环境变量。
+
 ### DLNA SOAP
 
 - 顺序：**stop（best-effort，忽略错误）→ SetAVTransportURI → Play**
@@ -296,6 +300,9 @@ NWConnection 不会被任何外部对象持有，只被回调闭包捕获。**�
 | 8B TV 签名 FLV（实验性）| ✅ | 用户脚本内 MD5 + `gatherFlvTV()`；appkey/appsec 内嵌 |
 | 8C DASH + ffmpeg remux | ✅ | `FFmpegMuxer` + `StreamSession.muxedDash` + ProxyConnection 分支；`build.sh` 通过 `tools/fetch-ffmpeg.sh` 自动下载并打包进 `.app/Contents/Resources/ffmpeg`，可被 `Bundle.main.url(forResource:)` 找到；缺失时回退系统路径 |
 | 9 检查更新 + Release 流程 | ✅ | `UpdateChecker.swift` HEAD `releases/latest`；`package-dmg.sh` → DMG → `gh release create`；homebrew tap cask |
+| 10 Go 跨平台后端 SSDP | ✅ | `crossplatform/pkg/backend/ssdp.go`，从 Swift 端照搬，双 ST 并行 M-SEARCH，零外部依赖 |
+| 11 macOS Swift 端瘦身 | ✅ | `BackendClient.swift` HTTP Client 层，Swift 端删除 ~2000 行业务逻辑，改为通过 bilicastd 子进程通信 |
+| 12 用户脚本 token 失效检测 | ✅ | 设备为空时自动调 `/api/pairing/status` 检查 token；设备面板增加"设置 Token"按钮 |
 
 ## Phase 8 实现速查
 

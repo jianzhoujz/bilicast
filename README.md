@@ -9,14 +9,14 @@
 
 [English](README.en.md) · 中文
 
-> 🤖 **AI 协作 Agent / 贡献者请先看 [AGENTS.md](AGENTS.md)**：项目唯一面向 AI 阅读的入口文档，含模块划分、踩坑笔记、API 设计、发布流程。
+> 🤖 **AI 协作 Agent / 贡献者请先看 [AGENTS.md](AGENTS.md)**：项目唯一面向 AI 阅读的入口文档，含模块划分、踩坑笔记、API 设计、发布流程。GitHub Copilot / Claude Code 等 AI 编码工具请参考 [GITHUB_AGENTS.md](GITHUB_AGENTS.md)。
 
 ## 介绍
 
 哔哩哔哩网页版没有原生的"投屏到电视"按钮（手机 / 平板 App 才有）。本工具用：
 
 1. 一个 **浏览器端入口**，可选 Tampermonkey 用户脚本或浏览器扩展，在 B 站视频页右下角注入"投屏"按钮；
-2. 一个 **本地投屏后端**：当前稳定版是 Mac 菜单栏 App；`crossplatform/` 分支提供 Wails2 跨平台后端、桌面客户端和 Docker daemon 模式。
+2. 一个 **本地投屏后端**：当前稳定版是 Mac 菜单栏 App；`crossplatform/` 分支提供 Wails2 跨平台后端（Go 共享核心 `pkg/backend/`）、桌面客户端和 Docker daemon 模式。
 
 > 仅用于把当前账号本就有权访问的普通公开视频投到自有局域网设备。**不绕过会员、版权、区域、登录或 DRM 限制**，番剧、付费内容、DRM 内容都会明确提示"暂不支持"。
 
@@ -170,6 +170,7 @@ log stream --predicate 'subsystem == "local.bilicast"' --info --debug
 | B 站页面没有"投屏"按钮 | 用户脚本未启用 / 没匹配到当前 URL（番剧页第一版只提示不支持） |
 | 红色 toast"未检测到 BiliCast" | 菜单栏 App 没启动 / 18787 端口被占 |
 | `TOKEN_INVALID` | token 复制错了，去菜单栏重新复制再用 Tampermonkey 菜单"设置 BiliCast Token"重粘 |
+| 设备列表空 + "Token 已失效" toast | 后端重启后 token 变了，用户脚本会自动检测并提示；在设备选择面板点"设置 Token"重新粘贴即可 |
 | 设备列表空 | 电视关了 / 电视 DLNA 关了 / 不同 Wi-Fi / 防火墙拦多播 |
 | `UNSUPPORTED_CONTENT` | 当前视频拿不到任何可投候选；可能是会员 / DRM 内容 |
 | `DLNA_SET_URI_FAILED` / `DLNA_PLAY_FAILED` | TV 不接受当前 URL 格式或编码；看日志里的 SOAP 响应 detail |

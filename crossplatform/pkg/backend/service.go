@@ -140,6 +140,17 @@ func (s *Service) Devices() []Device {
 }
 
 func (s *Service) RefreshDevices(ctx context.Context) int {
+	// Try SSDP discovery first.
+	if discovered, err := discoverDevices(ctx, 3*time.Second); err == nil && len(discovered) > 0 {
+		s.mu.Lock()
+		s.devices = make(map[string]Device, len(discovered))
+		for _, d := range discovered {
+			s.devices[d.ID] = d
+		}
+		s.mu.Unlock()
+		return len(discovered)
+	}
+	// Fallback to env-configured devices.
 	s.loadDevicesFromEnv()
 	return len(s.Devices())
 }

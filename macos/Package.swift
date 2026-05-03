@@ -26,7 +26,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "BiliCastApp",
-            dependencies: ["BiliCastCore", "BiliCastHTTP", "BiliCastDLNA"],
+            dependencies: ["BiliCastCore", "BiliCastHTTP"],
             path: "Sources/BiliCastApp"
         ),
     ]

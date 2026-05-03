@@ -113,6 +113,22 @@ export BILICAST_DEVICES_JSON='[{"id":"tv","name":"Living Room TV","avTransportCo
 
 ## Current scope
 
-This branch establishes the cross-platform backend foundation: shared API, token/config persistence, quality preference handling, stream candidate picking, direct stream proxying with Range forwarding, DASH remux streaming through ffmpeg, Wails desktop shell actions, and Docker packaging.
+This branch establishes the cross-platform backend foundation: shared API, token/config persistence, quality preference handling, stream candidate picking, direct stream proxying with Range forwarding, DASH remux streaming through ffmpeg, Wails desktop shell actions, Docker packaging, and automatic SSDP device discovery.
 
-Automatic SSDP discovery can be wired into `Service.RefreshDevices` next; Docker/manual deployments already support explicit renderer configuration through `BILICAST_DEVICES_JSON`.
+### SSDP device discovery
+
+`Service.RefreshDevices` now performs automatic SSDP (M-SEARCH) discovery before falling back to `BILICAST_DEVICES_JSON`. It searches for both `MediaRenderer:1` and `AVTransport:1` targets in parallel, fetches and parses device description XMLs, and registers any DLNA renderer that exposes an AVTransport service. Discovered devices are cached until the next refresh.
+
+If SSDP returns no devices (e.g. multicast blocked by firewall, no DLNA renderers on the network), the service falls back to the `BILICAST_DEVICES_JSON` environment variable and the `BILICAST_ALLOW_MOCK_DEVICE` mock.
+
+### Docker multicast limitation
+
+SSDP uses UDP multicast (`239.255.255.250:1900`), which does **not** work inside a Docker container by default — the container's network namespace isolates it from the host's multicast domain. To use SSDP discovery in Docker, you must run with `--network host`:
+
+```bash
+docker run --network host ... bilicastd
+```
+
+When using `docker compose`, add `network_mode: host` to the service definition. Note that `network_mode: host` bypasses port mappings, so the control API will be available on `127.0.0.1:18787` and the stream proxy on `0.0.0.0:18788` directly.
+
+If `--network host` is not an option, use `BILICAST_DEVICES_JSON` to manually configure DLNA renderers — the SSDP step will be skipped when no multicast-capable network is available, and the service will fall back to env-configured devices.

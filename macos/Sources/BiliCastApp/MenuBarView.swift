@@ -1,6 +1,5 @@
 import SwiftUI
 import BiliCastCore
-import BiliCastDLNA
 import BiliCastHTTP
 
 struct MenuBarView: View {
@@ -253,7 +252,7 @@ struct MenuBarView: View {
         }
     }
 
-    private func deviceRow(_ dev: DLNADevice) -> some View {
+    private func deviceRow(_ dev: BackendDevice) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "tv")
                 .foregroundColor(.secondary)
@@ -275,9 +274,9 @@ struct MenuBarView: View {
         .padding(.vertical, 1)
     }
 
-    private func subtitleFor(_ dev: DLNADevice) -> String? {
+    private func subtitleFor(_ dev: BackendDevice) -> String? {
         let bits = [dev.manufacturer, dev.modelName].compactMap { $0 }
-        if bits.isEmpty { return dev.location.host }
+        if bits.isEmpty { return dev.location ?? "" }
         return bits.joined(separator: " · ")
     }
 

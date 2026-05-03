@@ -3,8 +3,10 @@ import AppKit
 import os
 import BiliCastCore
 import BiliCastHTTP
-import BiliCastDLNA
 
+/// AppState is now a thin shell that manages the Go backend daemon (bilicastd)
+/// and bridges its HTTP API responses to SwiftUI. All business logic — SSDP,
+/// DLNA SOAP, stream proxy, candidate picking — lives in the shared Go backend.
 @MainActor
 final class AppState: ObservableObject {
     enum ServiceStatus: Equatable {
@@ -23,268 +25,59 @@ final class AppState: ObservableObject {
         let startedAt: Date
     }
 
+    // MARK: - Published (UI-bound)
+
     @Published private(set) var status: ServiceStatus = .stopped
     @Published private(set) var token: String = ""
     @Published private(set) var lastError: String?
-    @Published private(set) var devices: [DLNADevice] = []
+    @Published private(set) var devices: [BackendDevice] = []
     @Published private(set) var currentSession: CurrentSessionView?
     @Published private(set) var qualityPreference: QualityPreference = .mp4Safe
-    @Published private(set) var ffmpegPath: String?
-    @Published private(set) var ffmpegSource: FFmpeg.Source?
+    @Published private(set) var ffmpegPath: String? = nil
+    @Published private(set) var ffmpegSource: FFmpeg.Source? = nil
 
-    private let tokenStore = ThreadSafeBox<String>("")
-    private let preferenceStore = OSAllocatedUnfairLock<QualityPreference>(initialState: .mp4Safe)
-    private let ffmpegPathStore = OSAllocatedUnfairLock<String?>(initialState: nil)
-    private var controlServer: HTTPServer?
-    private var proxyServer: ProxyServer?
+    // MARK: - Internal state
+
+    private let client = BackendClient()
+    private var daemonProcess: Process?
     private var deviceRefreshTimer: Timer?
+    private var currentToken: String = ""
 
-    let sessions = StreamSessionStore()
-
-    private let currentSessionBox = OSAllocatedUnfairLock<CurrentSessionView?>(initialState: nil)
+    // MARK: - Lifecycle
 
     func start() {
-        guard controlServer == nil else { return }
+        guard daemonProcess == nil else { return }
+        status = .starting
+
         do {
             let cfg = try ConfigStore.loadOrCreate()
             self.token = cfg.token
-            self.tokenStore.set(cfg.token)
+            self.currentToken = cfg.token
             self.qualityPreference = cfg.qualityPreference
-            self.preferenceStore.withLock { $0 = cfg.qualityPreference }
 
+            // Locate ffmpeg for display purposes (Go backend also does this independently).
             let located = FFmpeg.locate()
             self.ffmpegPath = located?.path
             self.ffmpegSource = located?.source
-            self.ffmpegPathStore.withLock { $0 = located?.path }
             if let l = located {
                 Log.app.info("ffmpeg located: \(l.path, privacy: .public) source=\(String(describing: l.source), privacy: .public)")
             } else {
                 Log.app.info("ffmpeg not found; dashRemux tier will degrade")
             }
 
-            let tokenStore = self.tokenStore
-            let preferenceStore = self.preferenceStore
-            let ffmpegPathStore = self.ffmpegPathStore
-            let discovery = DLNADiscovery.shared
-            let registry = discovery.registry
-            let sessions = self.sessions
-            let currentSessionBox = self.currentSessionBox
-            weak var weakSelf = self
+            // Start Go backend daemon.
+            try startDaemon(token: cfg.token, quality: cfg.qualityPreference)
 
-            let deps = ControlAPIDeps(
-                getToken: { tokenStore.get() },
-                getDevices: { registry.all().map { $0.toJSON() } },
-                refreshDevices: { await discovery.refresh() },
-                getStatus: {
-                    var out: [String: Any] = [
-                        "running": true,
-                        "deviceCount": registry.all().count,
-                        "qualityPreference": preferenceStore.withLock({ $0 }).rawValue,
-                        "ffmpegAvailable": ffmpegPathStore.withLock({ $0 }) != nil,
-                    ]
-                    if let cs = currentSessionBox.withLock({ $0 }) {
-                        out["currentSession"] = [
-                            "sessionId": cs.sessionId,
-                            "title": cs.title,
-                            "deviceId": cs.deviceId,
-                            "deviceName": cs.deviceName,
-                            "tier": cs.tier.rawValue,
-                            "startedAt": ISO8601DateFormatter().string(from: cs.startedAt),
-                        ]
-                    } else {
-                        out["currentSession"] = NSNull()
-                    }
-                    return out
-                },
-                getPreferences: {
-                    [
-                        "qualityPreference": preferenceStore.withLock({ $0 }).rawValue,
-                        "qualityPreferenceOptions": QualityPreference.allCases.map { $0.rawValue },
-                        "ffmpegAvailable": ffmpegPathStore.withLock({ $0 }) != nil,
-                    ]
-                },
-                setPreferences: { json in
-                    if let raw = json["qualityPreference"] as? String,
-                       let pref = QualityPreference(rawValue: raw) {
-                        preferenceStore.withLock { $0 = pref }
-                        if var cfg = try? ConfigStore.loadOrCreate() {
-                            cfg.qualityPreference = pref
-                            try? ConfigStore.save(cfg)
-                        }
-                        Task { @MainActor in
-                            weakSelf?.qualityPreference = pref
-                        }
-                    }
-                    return [
-                        "qualityPreference": preferenceStore.withLock({ $0 }).rawValue,
-                        "ffmpegAvailable": ffmpegPathStore.withLock({ $0 }) != nil,
-                    ]
-                },
-                playOnDevice: { deviceId, url in
-                    guard let dev = registry.get(id: deviceId) else {
-                        throw APIError(code: .deviceOffline,
-                                       message: "Device not found: \(deviceId)",
-                                       httpStatus: 404)
-                    }
-                    try await AVTransportClient(device: dev).playFromURL(url)
-                },
-                stopOnDevice: { deviceId in
-                    guard let dev = registry.get(id: deviceId) else {
-                        throw APIError(code: .deviceOffline,
-                                       message: "Device not found: \(deviceId)",
-                                       httpStatus: 404)
-                    }
-                    try await AVTransportClient(device: dev).stop()
-                },
-                castBilibili: { req in
-                    guard let dev = registry.get(id: req.deviceId) else {
-                        throw APIError(code: .deviceOffline,
-                                       message: "Device not found: \(req.deviceId)",
-                                       httpStatus: 404)
-                    }
-                    let preference = preferenceStore.withLock { $0 }
-                    let ffmpegAvailable = ffmpegPathStore.withLock { $0 } != nil
-                    guard let pick = BilibiliCast.pick(
-                        from: req.candidates,
-                        preference: preference,
-                        ffmpegAvailable: ffmpegAvailable
-                    ) else {
-                        throw APIError(
-                            code: .unsupportedContent,
-                            message: ffmpegAvailable
-                                ? "暂不支持当前视频。所有候选都为空（可能是会员/版权/DRM 内容）。"
-                                : "暂不支持当前视频。可能仅有 DASH 流，请装 ffmpeg 或选'标准'清晰度。",
-                            httpStatus: 415
-                        )
-                    }
-                    guard let lanIP = NetworkInfo.primaryIPv4() else {
-                        throw APIError(code: .proxyFailed,
-                                       message: "无法获取 Mac 局域网 IP",
-                                       httpStatus: 500)
-                    }
-                    // Build session per pick.
-                    let session: StreamSession
-                    switch pick.selection {
-                    case .direct(let url, _, _):
-                        session = sessions.createDirect(
-                            upstream: url,
-                            headers: BilibiliCast.upstreamHeaders,
-                            title: req.title,
-                            tier: pick.tier,
-                            ttl: 6 * 3600
-                        )
-                    case .muxedDash(let videoURL, let audioURL, _, _):
-                        session = sessions.createMuxedDash(
-                            videoURL: videoURL,
-                            audioURL: audioURL,
-                            headers: BilibiliCast.upstreamHeaders,
-                            title: req.title,
-                            ttl: 6 * 3600
-                        )
-                    }
-                    guard let streamURL = URL(string:
-                        "http://\(lanIP):\(BiliCast.proxyPort)/stream/\(session.id)/video"
-                    ) else {
-                        sessions.remove(session.id)
-                        throw APIError(code: .proxyFailed,
-                                       message: "构建代理 URL 失败",
-                                       httpStatus: 500)
-                    }
-                    let client = AVTransportClient(device: dev)
-                    do {
-                        try? await client.stop()
-                        try await client.setURI(streamURL)
-                        try await client.play()
-                    } catch let e as AVTransportClient.SOAPError {
-                        sessions.remove(session.id)
-                        let code: APIErrorCode = e.action == "SetAVTransportURI"
-                            ? .dlnaSetUriFailed
-                            : .dlnaPlayFailed
-                        throw APIError(code: code, message: e.description, httpStatus: 502)
-                    } catch {
-                        sessions.remove(session.id)
-                        throw APIError(code: .dlnaPlayFailed,
-                                       message: String(describing: error),
-                                       httpStatus: 502)
-                    }
-                    let view = CurrentSessionView(
-                        sessionId: session.id,
-                        title: req.title,
-                        deviceName: dev.name,
-                        deviceId: dev.id,
-                        tier: pick.tier,
-                        startedAt: Date()
-                    )
-                    currentSessionBox.withLock { $0 = view }
-                    Task { @MainActor in
-                        if currentSessionBox.withLock({ $0?.sessionId }) == view.sessionId {
-                            weakSelf?.currentSession = view
-                        }
-                    }
-                    Log.app.info("cast started session=\(session.id, privacy: .public) tier=\(pick.tier.rawValue, privacy: .public) device=\(dev.name, privacy: .public)")
-                    return CastResult(
-                        sessionId: session.id,
-                        deviceName: dev.name,
-                        streamUrl: streamURL,
-                        title: req.title,
-                        tier: pick.tier.rawValue
-                    )
-                },
-                stopCast: { deviceId in
-                    guard let dev = registry.get(id: deviceId) else {
-                        throw APIError(code: .deviceOffline,
-                                       message: "Device not found: \(deviceId)",
-                                       httpStatus: 404)
-                    }
-                    try? await AVTransportClient(device: dev).stop()
-                    if let cs = currentSessionBox.withLock({ $0 }), cs.deviceId == deviceId {
-                        sessions.remove(cs.sessionId)
-                        currentSessionBox.withLock { $0 = nil }
-                        Task { @MainActor in weakSelf?.currentSession = nil }
-                    }
-                }
-            )
-
-            let router = ControlAPI.makeRouter(deps: deps)
-            let httpServer = HTTPServer(
-                port: BiliCast.controlPort,
-                loopbackOnly: true,
-                router: router
-            )
-            httpServer.onStateChange = { [weak self] (s: HTTPServer.State) in
-                DispatchQueue.main.async {
-                    guard let self else { return }
-                    switch s {
-                    case .starting: self.status = .starting
-                    case .ready:
-                        self.status = .running
-                        self.lastError = nil
-                    case .failed(let m):
-                        self.status = .failed(m)
-                        self.lastError = m
-                    case .stopped:
-                        self.status = .stopped
-                    }
-                }
+            // Initial device refresh.
+            Task.detached(priority: .userInitiated) { [weak self] in
+                await self?.refreshDevicesFromBackend()
             }
-            try httpServer.start()
-            self.controlServer = httpServer
 
-            let ps = ProxyServer(port: BiliCast.proxyPort, sessions: sessions, ffmpegPath: located?.path)
-            ps.onStateChange = { (state: ProxyServer.State) in
-                if case .failed(let msg) = state {
-                    Log.app.error("Proxy server failed: \(msg, privacy: .public)")
-                }
-            }
-            try ps.start()
-            self.proxyServer = ps
-
-            Log.app.info("BiliCast starting; token=\(Log.redact(self.token), privacy: .public) preference=\(self.qualityPreference.rawValue, privacy: .public)")
-
-            Task.detached(priority: .userInitiated) {
-                _ = await DLNADiscovery.shared.refresh()
-            }
             startDeviceRefreshTimer()
+            status = .running
+            lastError = nil
+
+            Log.app.info("BiliCast started; token=\(Log.redact(self.token), privacy: .public) preference=\(self.qualityPreference.rawValue, privacy: .public)")
         } catch {
             let msg = String(describing: error)
             self.status = .failed(msg)
@@ -294,14 +87,109 @@ final class AppState: ObservableObject {
     }
 
     func stop() {
-        controlServer?.stop()
-        controlServer = nil
-        proxyServer?.stop()
-        proxyServer = nil
         deviceRefreshTimer?.invalidate()
         deviceRefreshTimer = nil
+        daemonProcess?.terminate()
+        daemonProcess?.waitUntilExit()
+        daemonProcess = nil
         status = .stopped
     }
+
+    // MARK: - Daemon management
+
+    private func startDaemon(token: String, quality: QualityPreference) throws {
+        // Locate bilicastd binary. In development it's built alongside the Swift
+        // package; in production it's bundled inside the .app.
+        let binaryURL: URL
+        if let bundled = Bundle.main.url(forAuxiliaryExecutable: "bilicastd") {
+            binaryURL = bundled
+        } else {
+            // Development fallback: look in the crossplatform build directory.
+            let devPath = URL(fileURLWithPath: #filePath)
+                .deletingLastPathComponent()  // AppState.swift
+                .deletingLastPathComponent()  // BiliCastApp
+                .deletingLastPathComponent()  // Sources
+                .deletingLastPathComponent()  // macos
+                .appendingPathComponent("../crossplatform/bilicastd")
+                .standardized
+            binaryURL = devPath
+        }
+
+        guard FileManager.default.isExecutableFile(atPath: binaryURL.path) else {
+            throw APIError(code: .serviceOffline,
+                           message: "bilicastd not found at \(binaryURL.path). Build the Go backend first.",
+                           httpStatus: 500)
+        }
+
+        let proc = Process()
+        proc.executableURL = binaryURL
+        proc.arguments = [
+            "--control-addr", "127.0.0.1:\(BiliCast.controlPort)",
+            "--proxy-addr", "0.0.0.0:\(BiliCast.proxyPort)",
+        ]
+        var env = ProcessInfo.processInfo.environment
+        env["BILICAST_TOKEN"] = token
+        env["BILICAST_QUALITY"] = quality.rawValue
+        proc.environment = env
+
+        // Capture stdout/stderr for debugging.
+        let outPipe = Pipe()
+        proc.standardOutput = outPipe
+        proc.standardError = outPipe
+        outPipe.fileHandleForReading.readabilityHandler = { handle in
+            let data = handle.availableData
+            if !data.isEmpty, let line = String(data: data, encoding: .utf8) {
+                Log.app.debug("bilicastd: \(line.trimmingCharacters(in: .whitespacesAndNewlines), privacy: .public)")
+            }
+        }
+
+        try proc.run()
+        self.daemonProcess = proc
+
+        // Give the daemon a moment to bind its ports.
+        Thread.sleep(forTimeInterval: 0.5)
+
+        Log.app.info("bilicastd started pid=\(proc.processIdentifier)")
+    }
+
+    // MARK: - Backend bridge
+
+    private func refreshDevicesFromBackend() async {
+        do {
+            _ = try await client.refreshDevices(token: currentToken)
+            let devs = try await client.devices(token: currentToken)
+            await MainActor.run { self.devices = devs }
+        } catch {
+            Log.app.error("refreshDevices failed: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    private func refreshStatusFromBackend() async {
+        do {
+            let s = try await client.status(token: currentToken)
+            await MainActor.run {
+                if let cs = s.currentSession {
+                    // Parse startedAt and map tier.
+                    let tier = QualityPreference(rawValue: cs.tier) ?? .mp4Safe
+                    let startedAt = ISO8601DateFormatter().date(from: cs.startedAt) ?? Date()
+                    self.currentSession = CurrentSessionView(
+                        sessionId: cs.sessionId,
+                        title: cs.title,
+                        deviceName: cs.deviceName,
+                        deviceId: cs.deviceId,
+                        tier: tier,
+                        startedAt: startedAt
+                    )
+                } else {
+                    self.currentSession = nil
+                }
+            }
+        } catch {
+            // Silently ignore — status polling is best-effort.
+        }
+    }
+
+    // MARK: - Public actions
 
     func copyToken() {
         let pb = NSPasteboard.general
@@ -317,52 +205,50 @@ final class AppState: ObservableObject {
             Log.app.error("save config failed: \(String(describing: error), privacy: .public)")
         }
         token = new
-        tokenStore.set(new)
+        currentToken = new
+        // Restart daemon with new token.
+        stop()
+        start()
     }
 
     func setQualityPreference(_ pref: QualityPreference) {
         qualityPreference = pref
-        preferenceStore.withLock { $0 = pref }
         var cfg = (try? ConfigStore.loadOrCreate()) ?? Config(token: token)
         cfg.qualityPreference = pref
         try? ConfigStore.save(cfg)
+
+        Task.detached { [weak self] in
+            guard let self else { return }
+            _ = try? await self.client.setPreferences(pref, token: self.currentToken)
+        }
     }
 
     func refreshDevicesNow() {
         Task.detached(priority: .userInitiated) { [weak self] in
-            _ = await DLNADiscovery.shared.refresh()
-            self?.reloadDevices()
+            await self?.refreshDevicesFromBackend()
         }
-    }
-
-    nonisolated func reloadDevices() {
-        let snapshot = DLNADiscovery.shared.registry.all()
-        Task { @MainActor in self.devices = snapshot }
     }
 
     func stopCurrentCast() {
         guard let cs = currentSession else { return }
         Task.detached { [weak self] in
             guard let self else { return }
-            if let dev = DLNADiscovery.shared.registry.get(id: cs.deviceId) {
-                try? await AVTransportClient(device: dev).stop()
-            }
-            self.sessions.remove(cs.sessionId)
-            self.currentSessionBox.withLock { $0 = nil }
+            _ = try? await self.client.stopCast(deviceId: cs.deviceId, token: self.currentToken)
             await MainActor.run { self.currentSession = nil }
         }
     }
 
+    // MARK: - Timer
+
     private func startDeviceRefreshTimer() {
         deviceRefreshTimer?.invalidate()
         let t = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
-            self?.reloadDevices()
+            Task.detached { [weak self] in
+                await self?.refreshDevicesFromBackend()
+                await self?.refreshStatusFromBackend()
+            }
         }
         RunLoop.main.add(t, forMode: .common)
         deviceRefreshTimer = t
-        Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 4_000_000_000)
-            self?.reloadDevices()
-        }
     }
 }

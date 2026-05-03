@@ -405,6 +405,8 @@
       .btn.primary { background: #fb7299; border-color: #fb7299; color: #fff; }
       .btn.primary:hover { background: #ff85ad; border-color: #ff85ad; }
       .btn:disabled { opacity: .6; cursor: progress; }
+      .btn.btn-token { color: #61666d; border-color: transparent; background: transparent; }
+      .btn.btn-token:hover { background: #f4f5f7; border-color: #d6d8db; }
     `;
     shadowRoot.appendChild(style);
     const toastStack = document.createElement('div');
@@ -494,7 +496,7 @@
 
   // --- device picker modal ---------------------------------------------------
 
-  function showDevicePicker({ devices, onSelect, onRefresh }) {
+  function showDevicePicker({ devices, onSelect, onRefresh, onResetToken }) {
     const root = ensureShadowHost();
     const old = root.querySelector('.picker-mask');
     if (old) old.remove();
@@ -581,6 +583,19 @@
     cancel.addEventListener('click', () => mask.remove());
     foot.appendChild(refresh);
     foot.appendChild(cancel);
+
+    if (onResetToken) {
+      const resetTok = document.createElement('button');
+      resetTok.className = 'btn btn-token';
+      resetTok.textContent = '设置 Token';
+      resetTok.addEventListener('click', async () => {
+        resetTok.disabled = true;
+        const list = await onResetToken();
+        resetTok.disabled = false;
+        render(list);
+      });
+      foot.appendChild(resetTok);
+    }
 
     panel.appendChild(head);
     panel.appendChild(body);
@@ -831,6 +846,12 @@
 
       let devices = await fetchDevices();
       if (devices.length === 0) {
+        // Check if the token is still valid before triggering a scan.
+        const ps = await requestLocalApi('/api/pairing/status', { withToken: true });
+        if (!ps.ok || ps.data?.data?.paired !== true) {
+          await setLocalToken('');
+          showToast('Token 已失效（可能后端已重启），请重新设置。', 'warn');
+        }
         showToast('正在搜索局域网设备…', 'info');
         devices = await refreshDevicesNow();
       }
@@ -843,6 +864,14 @@
         },
         onRefresh: async () => {
           showToast('正在搜索局域网设备…', 'info');
+          return await refreshDevicesNow();
+        },
+        onResetToken: async () => {
+          const cur = await getLocalToken();
+          const v = prompt('粘贴菜单栏 App 里的 token：', cur);
+          if (v == null) return [];
+          await setLocalToken(v.trim());
+          showToast('Token 已保存。', 'ok');
           return await refreshDevicesNow();
         },
       });

@@ -10,7 +10,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/jianzhoujz/bilicast/crossplatform/internal/backend"
+	"github.com/jianzhoujz/bilicast/crossplatform/pkg/backend"
 )
 
 func main() {

@@ -1,120 +1,186 @@
 #!/usr/bin/env bash
+# Build BiliCast.app — one-shot script that:
+#   1. Builds the Go backend daemon (bilicastd)
+#   2. Builds the Swift macOS app
+#   3. Assembles the .app bundle with bilicastd + ffmpeg
+#   4. Ad-hoc signs and clears quarantine
+#   5. Packs into BiliCast.app.zip
+#
+# Usage:
+#   ./build.sh                        # darwin-arm64, debug-ish (swift build -c release)
+#   ./build.sh --arch amd64           # darwin-amd64
+#   ./build.sh --skip-go              # skip Go rebuild (use existing binary)
+#   ./build.sh --zip-only             # only re-pack existing .app
+#
+# Env vars:
+#   APP_VERSION   — version string (default: auto-detected from git tag)
+#   BILICAST_SKIP_FFMPEG=1 — skip ffmpeg download entirely
+
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
+CROSSPLATFORM="$ROOT/../crossplatform"
 APP_NAME="BiliCast"
-EXEC_NAME="BiliCast"
-DISPLAY_NAME="BiliCast"
-BUNDLE_ID="local.bilicast"
-APP_VERSION="${APP_VERSION:-0.4.0}"
-APP_BUILD="${APP_BUILD:-$APP_VERSION}"
-APP_BUILD_TIME="${APP_BUILD_TIME:-$(date '+%Y-%m-%d %H:%M:%S %z')}"
-DEPLOYMENT_TARGET="${DEPLOYMENT_TARGET:-13.0}"
+BUILD_DIR="$ROOT/build"
+APP_PATH="$BUILD_DIR/$APP_NAME.app"
+CONTENTS="$APP_PATH/Contents"
+MACOS_DIR="$CONTENTS/MacOS"
+RESOURCES_DIR="$CONTENTS/Resources"
 
-# Set BILICAST_SKIP_FFMPEG=1 to skip downloading ffmpeg (the .app will fall back
-# to the user's system ffmpeg at runtime — dashRemux degrades if no system ffmpeg).
-SKIP_FFMPEG="${BILICAST_SKIP_FFMPEG:-0}"
+ARCH="${ARCH:-arm64}"
+SKIP_GO=false
+ZIP_ONLY=false
 
-APP="$ROOT/build/$APP_NAME.app"
-RESOURCES="$APP/Contents/Resources"
-SOURCE_RESOURCES="$ROOT/Resources"
-APP_ICON="$SOURCE_RESOURCES/AppIcon.icns"
-BUNDLED_FFMPEG_CACHE="$SOURCE_RESOURCES/ffmpeg"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --arch) ARCH="$2"; shift 2 ;;
+    --skip-go) SKIP_GO=true; shift ;;
+    --zip-only) ZIP_ONLY=true; shift ;;
+    *) echo "Unknown arg: $1" >&2; exit 2 ;;
+  esac
+done
 
-rm -rf "$ROOT/build"
-mkdir -p "$APP/Contents/MacOS" "$RESOURCES"
-
-# Step 1: ensure we have a bundle-able ffmpeg (cached at Resources/ffmpeg).
-if [[ "$SKIP_FFMPEG" != "1" ]]; then
-  if [[ ! -x "$BUNDLED_FFMPEG_CACHE" ]]; then
-    echo "==> bundled ffmpeg not cached at $BUNDLED_FFMPEG_CACHE; fetching..."
-    mkdir -p "$SOURCE_RESOURCES"
-    if "$ROOT/tools/fetch-ffmpeg.sh" "$BUNDLED_FFMPEG_CACHE"; then
-      echo "==> fetched and cached"
-    else
-      echo "  ! ffmpeg fetch failed; .app will rely on system ffmpeg at runtime"
-      rm -f "$BUNDLED_FFMPEG_CACHE"
-    fi
-  else
-    echo "==> using cached ffmpeg at $BUNDLED_FFMPEG_CACHE"
-  fi
+# --- version detection ---
+if [[ -z "${APP_VERSION:-}" ]]; then
+  APP_VERSION="$(git -C "$ROOT" describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.4.0")"
 fi
+echo "==> BiliCast v$APP_VERSION  arch=$ARCH"
 
-# App icon — generate if missing or REGENERATE_APP_ICON=1.
-if [[ "${REGENERATE_APP_ICON:-0}" == "1" || ! -f "$APP_ICON" ]]; then
-  mkdir -p "$SOURCE_RESOURCES"
-  ICONSET="$ROOT/build/AppIcon.iconset"
-  echo "==> generating app icon (emoji 🐝)"
-  swift "$ROOT/tools/make_app_icon.swift" "$ICONSET" "🐝"
-  iconutil -c icns "$ICONSET" -o "$APP_ICON"
-  rm -rf "$ICONSET"
-fi
-
-echo "==> swift build (universal release)"
-swift build -c release --arch arm64 --arch x86_64 --product "$EXEC_NAME"
-
-BUILT_BIN="$ROOT/.build/apple/Products/Release/$EXEC_NAME"
-if [[ ! -f "$BUILT_BIN" ]]; then
-  echo "build artifact missing: $BUILT_BIN" >&2
-  exit 1
-fi
-
-cp "$BUILT_BIN" "$APP/Contents/MacOS/$EXEC_NAME"
-chmod +x "$APP/Contents/MacOS/$EXEC_NAME"
-
-# Bundle resources
-if [[ -f "$APP_ICON" ]]; then
-  cp "$APP_ICON" "$RESOURCES/AppIcon.icns"
-  ICON_KEY_BLOCK="  <key>CFBundleIconFile</key>
-  <string>AppIcon</string>
-  <key>CFBundleIconName</key>
-  <string>AppIcon</string>"
+# ============================================================================
+# Step 1 — Build Go backend (bilicastd)
+# ============================================================================
+if $ZIP_ONLY; then
+  echo "==> [skip] zip-only mode, skipping builds"
+elif $SKIP_GO; then
+  echo "==> [skip] Go backend (--skip-go)"
 else
-  ICON_KEY_BLOCK=""
+  echo "==> Building Go backend (darwin-$ARCH)..."
+
+  GO_BINARY="$CROSSPLATFORM/dist/bilicastd-darwin-$ARCH"
+  cd "$CROSSPLATFORM"
+  if [[ "$ARCH" == "arm64" ]]; then
+    GOOS=darwin GOARCH=arm64 go build -o "$GO_BINARY" ./cmd/bilicastd/
+  else
+    GOOS=darwin GOARCH=amd64 go build -o "$GO_BINARY" ./cmd/bilicastd/
+  fi
+  cd "$ROOT"
+
+  echo "  ok: $(file -b "$GO_BINARY" | head -c 60)"
+  ls -lh "$GO_BINARY"
 fi
 
-if [[ -x "$BUNDLED_FFMPEG_CACHE" ]]; then
-  cp "$BUNDLED_FFMPEG_CACHE" "$RESOURCES/ffmpeg"
-  chmod +x "$RESOURCES/ffmpeg"
-  echo "==> bundled ffmpeg into .app/Contents/Resources/ffmpeg"
+# ============================================================================
+# Step 2 — Build Swift app
+# ============================================================================
+if ! $ZIP_ONLY; then
+  echo "==> Building Swift app..."
+  cd "$ROOT"
+  swift build --configuration release 2>&1 | tail -3
+
+  SWIFT_BINARY="$ROOT/.build/arm64-apple-macosx/release/$APP_NAME"
+  if [[ ! -f "$SWIFT_BINARY" ]]; then
+    echo "ERROR: Swift build did not produce $SWIFT_BINARY" >&2
+    exit 1
+  fi
+  echo "  ok: $(file -b "$SWIFT_BINARY" | head -c 60)"
 fi
 
-cat > "$APP/Contents/Info.plist" <<PLIST
+# ============================================================================
+# Step 3 — Assemble .app bundle
+# ============================================================================
+echo "==> Assembling $APP_NAME.app..."
+
+rm -rf "$APP_PATH"
+mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
+
+# --- Swift binary ---
+cp "$ROOT/.build/arm64-apple-macosx/release/$APP_NAME" "$MACOS_DIR/$APP_NAME"
+chmod +x "$MACOS_DIR/$APP_NAME"
+
+# --- Go daemon ---
+GO_BINARY="$CROSSPLATFORM/dist/bilicastd-darwin-$ARCH"
+if [[ -f "$GO_BINARY" ]]; then
+  cp "$GO_BINARY" "$MACOS_DIR/bilicastd"
+  chmod +x "$MACOS_DIR/bilicastd"
+  echo "  bundled bilicastd ($ARCH)"
+else
+  echo "  WARNING: bilicastd not found at $GO_BINARY — app will fail at runtime" >&2
+fi
+
+# --- ffmpeg ---
+FFMPEG_LIB="$ROOT/lib/ffmpeg"
+if [[ "${BILICAST_SKIP_FFMPEG:-0}" == "1" ]]; then
+  echo "  [skip] ffmpeg (BILICAST_SKIP_FFMPEG=1)"
+elif [[ -f "$FFMPEG_LIB" ]]; then
+  cp "$FFMPEG_LIB" "$RESOURCES_DIR/ffmpeg"
+  echo "  ffmpeg (from lib/)"
+else
+  echo "  fetching ffmpeg..."
+  "$ROOT/tools/fetch-ffmpeg.sh" "$FFMPEG_LIB" && {
+    cp "$FFMPEG_LIB" "$RESOURCES_DIR/ffmpeg"
+    echo "  ffmpeg (downloaded → lib/)"
+  } || {
+    echo "  WARNING: ffmpeg download failed — app will rely on system ffmpeg" >&2
+  }
+fi
+
+# --- App icon ---
+if [[ -f "$ROOT/packaging/dmg/VolumeIcon.icns" ]]; then
+  cp "$ROOT/packaging/dmg/VolumeIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
+elif [[ -f "$ROOT/Resources/AppIcon.icns" ]]; then
+  cp "$ROOT/Resources/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
+fi
+
+# --- Info.plist ---
+cat > "$CONTENTS/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleDevelopmentRegion</key>
-  <string>en</string>
   <key>CFBundleExecutable</key>
-  <string>$EXEC_NAME</string>
-$ICON_KEY_BLOCK
+  <string>$APP_NAME</string>
   <key>CFBundleIdentifier</key>
-  <string>$BUNDLE_ID</string>
-  <key>CFBundleInfoDictionaryVersion</key>
-  <string>6.0</string>
+  <string>com.jianzhou.bilicast</string>
   <key>CFBundleName</key>
-  <string>$DISPLAY_NAME</string>
+  <string>$APP_NAME</string>
   <key>CFBundleDisplayName</key>
-  <string>$DISPLAY_NAME</string>
-  <key>CFBundlePackageType</key>
-  <string>APPL</string>
+  <string>$APP_NAME</string>
+  <key>CFBundleVersion</key>
+  <string>$APP_VERSION</string>
   <key>CFBundleShortVersionString</key>
   <string>$APP_VERSION</string>
-  <key>CFBundleVersion</key>
-  <string>$APP_BUILD</string>
-  <key>BuildTime</key>
-  <string>$APP_BUILD_TIME</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleIconFile</key>
+  <string>AppIcon</string>
   <key>LSMinimumSystemVersion</key>
-  <string>$DEPLOYMENT_TARGET</string>
-  <key>LSUIElement</key>
+  <string>13.0</string>
+  <key>NSHighResolutionCapable</key>
   <true/>
-  <key>NSPrincipalClass</key>
-  <string>NSApplication</string>
 </dict>
 </plist>
 PLIST
 
-codesign --force --deep --sign - "$APP" >/dev/null 2>&1 || true
+# ============================================================================
+# Step 4 — Sign & clear quarantine
+# ============================================================================
+echo "==> Signing (ad-hoc)..."
+codesign --force --deep --sign - "$APP_PATH" 2>&1
 
-echo "==> built $APP"
+echo "==> Clearing quarantine..."
+xattr -dr com.apple.quarantine "$APP_PATH" 2>/dev/null || true
+
+# ============================================================================
+# Step 5 — Pack zip
+# ============================================================================
+ZIP_PATH="$BUILD_DIR/$APP_NAME.app.zip"
+rm -f "$ZIP_PATH"
+echo "==> Packing $ZIP_PATH..."
+cd "$BUILD_DIR"
+zip -r "$APP_NAME.app.zip" "$APP_NAME.app" 2>&1 | tail -1
+ls -lh "$ZIP_PATH"
+
+echo ""
+echo "==> Done: $ZIP_PATH"
+echo "    $APP_NAME v$APP_VERSION ($ARCH)"
