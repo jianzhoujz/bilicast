@@ -24,7 +24,9 @@ struct BiliCastApp: App {
         MenuBarExtra {
             MenuBarView(state: delegate.state, updater: delegate.updateChecker)
         } label: {
-            Image(systemName: "play.tv")
+            // 13pt monospaced semibold matches input-indicator's status item width.
+            Text("🐝")
+                .font(.system(size: 13, weight: .semibold, design: .monospaced))
         }
         .menuBarExtraStyle(.window)
     }

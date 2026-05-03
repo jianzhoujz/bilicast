@@ -40,6 +40,16 @@ if [[ "$SKIP_FFMPEG" != "1" ]]; then
   fi
 fi
 
+# App icon — generate if missing or REGENERATE_APP_ICON=1.
+if [[ "${REGENERATE_APP_ICON:-0}" == "1" || ! -f "$APP_ICON" ]]; then
+  mkdir -p "$SOURCE_RESOURCES"
+  ICONSET="$ROOT/build/AppIcon.iconset"
+  echo "==> generating app icon (emoji 🐝)"
+  swift "$ROOT/tools/make_app_icon.swift" "$ICONSET" "🐝"
+  iconutil -c icns "$ICONSET" -o "$APP_ICON"
+  rm -rf "$ICONSET"
+fi
+
 echo "==> swift build (universal release)"
 swift build -c release --arch arm64 --arch x86_64 --product "$EXEC_NAME"
 
