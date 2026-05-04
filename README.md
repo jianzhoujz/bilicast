@@ -5,32 +5,32 @@
 ![Intel](https://img.shields.io/badge/Intel-supported-brightgreen)
 ![Release](https://img.shields.io/github/v/release/jianzhoujz/bilicast)
 
-把 B 站网页版视频投到局域网的 DLNA 电视、盒子或投影仪。Mac 菜单栏 App + Tampermonkey 用户脚本。
+把 B 站网页版视频投到局域网的 DLNA 电视、盒子或投影仪。支持 macOS 原生菜单栏 App、Windows / Linux Wails2 桌面端、Docker 后端、Tampermonkey 用户脚本和 Chrome / Edge 浏览器扩展。
 
 [English](README.en.md) · 中文
 
-> 🤖 **AI 协作 Agent / 贡献者请先看 [AGENTS.md](AGENTS.md)**：项目唯一面向 AI 阅读的入口文档，含模块划分、踩坑笔记、API 设计、发布流程。GitHub Copilot / Claude Code 等 AI 编码工具请参考 [GITHUB_AGENTS.md](GITHUB_AGENTS.md)。
+> 🤖 **AI 协作 Agent / 贡献者请先看 [AGENTS.md](AGENTS.md)**：项目唯一面向 AI 阅读的入口文档，含模块划分、踩坑笔记、API 设计、发布流程。
 
 ## 介绍
 
 哔哩哔哩网页版没有原生的"投屏到电视"按钮（手机 / 平板 App 才有）。本工具用：
 
 1. 一个 **浏览器端入口**，可选 Tampermonkey 用户脚本或浏览器扩展，在 B 站视频页右下角注入"投屏"按钮；
-2. 一个 **本地投屏后端**：当前稳定版是 Mac 菜单栏 App；`crossplatform/` 分支提供 Wails2 跨平台后端（Go 共享核心 `pkg/backend/`）、桌面客户端和 Docker daemon 模式。
+2. 一个 **本地投屏后端**，可选 macOS 原生菜单栏 App、Windows / Linux Wails2 桌面端、Docker daemon 或 Go daemon。
 
 > 仅用于把当前账号本就有权访问的普通公开视频投到自有局域网设备。**不绕过会员、版权、区域、登录或 DRM 限制**，番剧、付费内容、DRM 内容都会明确提示"暂不支持"。
 
-稳定版支持 macOS 13+，Apple Silicon 和 Intel 都行。跨平台后端路线见 [`crossplatform/README.md`](crossplatform/README.md)，当前目标先覆盖 Windows / Linux Wails2 桌面端与 Docker 部署。
+macOS 原生 App 支持 macOS 13+，Apple Silicon 和 Intel 都行。跨平台后端见 [`crossplatform/README.md`](crossplatform/README.md)，已覆盖 Windows / Linux Wails2 桌面端、Docker 部署和 headless Go daemon。
 
 ### 三档清晰度
 
-|档位|来源|清晰度上限|是否需要 Mac 一直开着|
+|档位|来源|清晰度上限|是否需要后端主机一直开着|
 |---|---|---|---|
 |**标准**（默认）|B 站 `playurl?platform=html5` 单文件 MP4|720P|否，电视直连 B 站 CDN|
 |**高清**（实验性）|B 站 TV 接口签名拿 FLV|1080P|否，电视直连 B 站 CDN|
-|**极清**|`dash.video[]+audio[]` + 本机 ffmpeg 实时合流|与原片一致（4K / HDR）|是，电视播放期间 Mac 必须开机运行|
+|**极清**|`dash.video[]+audio[]` + 本机 ffmpeg 实时合流|与原片一致（4K / HDR）|是，电视播放期间后端主机必须保持运行|
 
-可在菜单栏切换。极清依赖 ffmpeg —— App 已经把 ffmpeg 打包在 `.app/Contents/Resources/` 里，**无需额外安装**。
+可在菜单栏或 HTTP 控制台切换。极清依赖 ffmpeg —— macOS 原生 App 已经把 ffmpeg 打包在 `.app/Contents/Resources/` 里，Wails2 Windows / Linux 发布包也内置同目录 sidecar，Docker 镜像内置系统 ffmpeg，**无需额外安装**。
 
 ## 安装
 
@@ -52,7 +52,16 @@ brew uninstall --cask bilicast
 
 从 [GitHub Releases](https://github.com/jianzhoujz/bilicast/releases) 下载 `BiliCast-VERSION.dmg`，打开后将 `BiliCast.app` 拖到 `Applications` 快捷方式上。
 
-### 跨平台 / Docker 后端（开发中）
+### Windows / Linux Wails2 桌面端
+
+从 [GitHub Releases](https://github.com/jianzhoujz/bilicast/releases) 下载对应桌面端产物：
+
+- Windows：`BiliCastHelper-windows-amd64.zip`，解压后运行 `BiliCastHelper.exe`。压缩包内置 `ffmpeg.exe`。
+- Linux：`BiliCastHelper-linux-amd64.tar.gz`，解压后运行 `linux-amd64/BiliCastHelper`。压缩包内置 `linux-amd64/ffmpeg`。
+
+Wails2 桌面端启动本地 HTTP API 服务和流代理，控制页面统一走 `http://127.0.0.1:18787/console`。控制台使用专属 API 前缀 `/api/bilicast` 并自动读取本机 token；托盘/原生菜单负责显示、隐藏主窗口与退出应用，首页跳转到这个控制台。
+
+### Docker / Go daemon
 
 ```bash
 cd crossplatform
@@ -60,16 +69,16 @@ cd crossplatform
 # Go daemon，本地或服务器运行
 go run ./cmd/bilicastd
 
-# Docker daemon
+# Docker daemon，镜像内置 ffmpeg
 docker compose up --build
 # 后台控制页：http://127.0.0.1:18787/console
 
-# Wails2 桌面端
+# 从源码构建 Wails2 桌面端
 go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
 wails build -tags wails
 ```
 
-跨平台后端复用同一套 HTTP API，可被 Tampermonkey 用户脚本、浏览器扩展和 HTTP 控制台使用；所有 Wails 版本的控制页面统一走 `http://127.0.0.1:18787/console`，控制台使用专属 API 前缀 `/api/bilicast` 并自动读取本机 token；Wails 桌面端当前聚焦 Windows / Linux，托盘/原生菜单负责显示、隐藏主窗口与退出应用，首页跳转到这个控制台。
+跨平台后端复用同一套 HTTP API，可被 Tampermonkey 用户脚本、浏览器扩展和 HTTP 控制台使用。
 
 ### 浏览器端入口
 
@@ -174,7 +183,7 @@ log stream --predicate 'subsystem == "local.bilicast"' --info --debug
 | 设备列表空 | 电视关了 / 电视 DLNA 关了 / 不同 Wi-Fi / 防火墙拦多播 |
 | `UNSUPPORTED_CONTENT` | 当前视频拿不到任何可投候选；可能是会员 / DRM 内容 |
 | `DLNA_SET_URI_FAILED` / `DLNA_PLAY_FAILED` | TV 不接受当前 URL 格式或编码；看日志里的 SOAP 响应 detail |
-| 极清档投屏后过几秒卡住 | Mac 进入睡眠或者切了 Wi-Fi；保持 Mac 唤醒 |
+| 极清档投屏后过几秒卡住 | 后端主机进入睡眠、切了 Wi-Fi 或 ffmpeg 不可用；保持后端主机唤醒，使用最新版带 ffmpeg 的发布包 |
 
 ## 开发与贡献
 
@@ -189,10 +198,10 @@ node --test tests/extension-smoke.test.mjs
 
 # CI 覆盖
 # - PR Checks：浏览器脚本、Go 后端、Docker smoke
-# - Wails Build：Windows amd64、Linux amd64
-# - Native macOS App Build：现有 Swift 原生 App universal zip / dmg
-# - Docker Image CI：GHCR 多架构镜像
-# - Release：自动打 tag、发 GitHub Release、触发桌面端、原生 macOS App 与 Docker 构建
+# - Wails Build：Windows amd64、Linux amd64；tag push 会发布带 ffmpeg sidecar 的桌面包
+# - Native macOS App Build：Swift 原生 App universal zip / dmg；tag push 会发布带 ffmpeg 的 .app/.dmg
+# - Docker Image CI：tag push 会发布 GHCR 多架构镜像
+# - Release：手动 workflow_dispatch 入口，负责自动算版本、打 tag、创建/更新 GitHub Release，并在同一轮调用产物构建；手动 push tag 时由下层三个 CI 直接发布产物
 
 cd macos
 

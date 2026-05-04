@@ -4,9 +4,9 @@ This directory contains the Wails2-based cross-platform backend track.
 
 ## Runtime targets
 
-- **Wails desktop client**: Windows / Linux desktop shell, built with Wails2.
+- **Wails desktop client**: Windows / Linux desktop shell, built with Wails2. Release archives include an ffmpeg sidecar binary for DASH remux mode.
 - **Native desktop entry**: Windows / Linux use a tray/native-menu action surface for showing the main window, hiding the main window, and quitting the app.
-- **Daemon / server mode**: `bilicastd`, a plain Go HTTP backend for local development, headless hosts, and Docker.
+- **Daemon / server mode**: `bilicastd`, a plain Go HTTP backend for local development and headless hosts. Install `ffmpeg` on the host if you use DASH remux mode.
 - **Docker mode**: containerized `bilicastd` with ffmpeg included.
 
 ## Supported clients
@@ -63,14 +63,19 @@ go run ./cmd/bilicastd
 
 ## Wails2 desktop
 
-Install Wails2, then build from this directory:
+Release archives are published from the `Wails Build` workflow on version tags:
+
+- Windows: `BiliCastHelper-windows-amd64.zip`, containing `BiliCastHelper.exe` and `ffmpeg.exe`.
+- Linux: `BiliCastHelper-linux-amd64.tar.gz`, containing `linux-amd64/BiliCastHelper` and `linux-amd64/ffmpeg`.
+
+Install Wails2, then build from this directory when developing locally:
 
 ```bash
 go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
 wails build -tags wails
 ```
 
-The desktop app starts the new HTTP API service and stream proxy, then redirects to the HTTP console for status, token, preferences, devices, and casting controls.
+The desktop app starts the new HTTP API service and stream proxy, then redirects to the HTTP console for status, token, preferences, devices, and casting controls. For release builds, the backend finds `ffmpeg` / `ffmpeg.exe` next to the executable before checking system PATH.
 
 Desktop shell behavior:
 
@@ -83,7 +88,7 @@ Desktop shell behavior:
 
 ## Docker
 
-Docker mode is for headless hosts. The compose file publishes the control API on host loopback only and exposes the stream proxy to the LAN:
+Docker mode is for headless hosts and includes ffmpeg in the image. The compose file publishes the control API on host loopback only and exposes the stream proxy to the LAN:
 
 ```bash
 cd crossplatform
@@ -113,7 +118,7 @@ export BILICAST_DEVICES_JSON='[{"id":"tv","name":"Living Room TV","avTransportCo
 
 ## Current scope
 
-This branch establishes the cross-platform backend foundation: shared API, token/config persistence, quality preference handling, stream candidate picking, direct stream proxying with Range forwarding, DASH remux streaming through ffmpeg, Wails desktop shell actions, Docker packaging, and automatic SSDP device discovery.
+The cross-platform backend now covers shared API, token/config persistence, quality preference handling, stream candidate picking, direct stream proxying with Range forwarding, DASH remux streaming through bundled or host ffmpeg, Wails desktop shell actions, Docker packaging, and automatic SSDP device discovery.
 
 ### SSDP device discovery
 

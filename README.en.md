@@ -6,7 +6,7 @@
 ![Release](https://img.shields.io/github/v/release/jianzhoujz/bilicast)
 
 Cast Bilibili web videos to a DLNA TV / projector / set-top box on your local
-network. macOS menu bar app + Tampermonkey userscript or browser extension.
+network. Supports the native macOS menu bar app, Windows / Linux Wails2 desktop builds, Docker backend, Tampermonkey userscript, and Chrome / Edge browser extension.
 
 English · [中文](README.md)
 
@@ -21,27 +21,25 @@ tablet apps do. This project adds one with two pieces:
 
 1. A **browser-side entry point** — either a Tampermonkey userscript or a
    browser extension — that injects a Cast button on every Bilibili video page;
-2. A **local casting backend**: the stable track is the macOS menu bar app;
-   `crossplatform/` adds the Wails2 cross-platform backend, desktop client,
-   and Docker daemon mode.
+2. A **local casting backend**: choose the native macOS menu bar app, the
+   Windows / Linux Wails2 desktop client, Docker daemon mode, or the plain Go daemon.
 
 > This tool only casts public videos that the signed-in user already has
 > permission to watch. **It does not bypass paywalls, region locks, member
 > content, DRM, or login.** Bangumi, members-only, and DRM-protected content
 > show an explicit "unsupported" toast.
 
-The stable track runs on macOS 13+, both Apple Silicon and Intel. The cross-platform backend track is documented in [`crossplatform/README.md`](crossplatform/README.md) and currently targets Windows / Linux Wails2 desktop builds plus Docker deployments.
+The native macOS app runs on macOS 13+, both Apple Silicon and Intel. The cross-platform backend is documented in [`crossplatform/README.md`](crossplatform/README.md) and now covers Windows / Linux Wails2 desktop builds, Docker deployments, and a headless Go daemon.
 
 ### Three quality tiers
 
-| Tier | Source | Max resolution | Mac must stay running? |
+| Tier | Source | Max resolution | Backend host must stay running? |
 |---|---|---|---|
 | **Standard** (default) | Bilibili `playurl?platform=html5` single-file MP4 | 720P | No — TV streams direct from Bilibili CDN |
 | **HD** (experimental) | Bilibili TV-signed playurl, returns FLV | 1080P | No — TV streams direct from Bilibili CDN |
-| **Ultra** | `dash.video[]+audio[]` muxed locally via ffmpeg | Native (4K / HDR) | Yes — Mac actively transcodes for the TV |
+| **Ultra** | `dash.video[]+audio[]` muxed locally via ffmpeg | Native (4K / HDR) | Yes — the backend host actively remuxes for the TV |
 
-Switchable from the menu bar. Ultra mode needs ffmpeg — the .app **bundles it**
-inside `.app/Contents/Resources/`, so you don't need to install it separately.
+Switchable from the menu bar or HTTP console. Ultra mode needs ffmpeg — the native macOS app bundles it inside `.app/Contents/Resources/`, Wails2 Windows / Linux release archives include an ffmpeg sidecar next to the executable, and the Docker image installs ffmpeg, so no separate install is needed for release builds.
 
 ## Install
 
@@ -65,7 +63,16 @@ Grab `BiliCast-VERSION.dmg` from
 [GitHub Releases](https://github.com/jianzhoujz/bilicast/releases). Open the
 DMG and drag `BiliCast.app` onto the `Applications` shortcut.
 
-### Cross-platform / Docker backend (in development)
+### Windows / Linux Wails2 desktop
+
+Download the desktop artifact for your platform from [GitHub Releases](https://github.com/jianzhoujz/bilicast/releases):
+
+- Windows: `BiliCastHelper-windows-amd64.zip`; extract it and run `BiliCastHelper.exe`. The archive includes `ffmpeg.exe`.
+- Linux: `BiliCastHelper-linux-amd64.tar.gz`; extract it and run `linux-amd64/BiliCastHelper`. The archive includes `linux-amd64/ffmpeg`.
+
+The Wails2 desktop app starts the local HTTP API service and stream proxy, then opens `http://127.0.0.1:18787/console` for control. The console uses the dedicated API prefix `/api/bilicast` with local token bootstrap. The tray/native menu shows or hides the main window and can quit the app; the Wails home page redirects to the console.
+
+### Docker / Go daemon
 
 ```bash
 cd crossplatform
@@ -73,16 +80,16 @@ cd crossplatform
 # Go daemon for local or server use
 go run ./cmd/bilicastd
 
-# Docker daemon
+# Docker daemon, with ffmpeg included in the image
 docker compose up --build
 # Console: http://127.0.0.1:18787/console
 
-# Wails2 desktop app
+# Build Wails2 desktop app from source
 go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
 wails build -tags wails
 ```
 
-The cross-platform backend keeps the same HTTP API and can be used by the Tampermonkey userscript, browser extension, and HTTP console. Every Wails build uses `http://127.0.0.1:18787/console` for control pages, and that console uses the dedicated API prefix `/api/bilicast` with local token bootstrap. The Wails desktop client currently focuses on Windows / Linux; the tray/native menu shows or hides the main window and can quit the app, while the Wails home page redirects to that console.
+The cross-platform backend keeps the same HTTP API and can be used by the Tampermonkey userscript, browser extension, and HTTP console.
 
 ### Browser-side entry point
 
@@ -200,7 +207,7 @@ log stream --predicate 'subsystem == "local.bilicast"' --info --debug
 | Empty device list | TV off / TV DLNA disabled / different Wi-Fi / firewall blocks multicast |
 | `UNSUPPORTED_CONTENT` | No castable candidates available; usually paid or DRM content |
 | `DLNA_SET_URI_FAILED` / `DLNA_PLAY_FAILED` | TV rejected the URL / format / codec; check SOAP detail in logs |
-| Ultra-mode stream stalls after a few seconds | Mac went to sleep or switched Wi-Fi; keep Mac awake |
+| Ultra-mode stream stalls after a few seconds | Backend host went to sleep, switched Wi-Fi, or ffmpeg is unavailable; keep the backend awake and use the latest release package with bundled ffmpeg |
 
 ## Development
 
@@ -217,10 +224,10 @@ node --test tests/extension-smoke.test.mjs
 
 # CI coverage
 # - PR Checks: browser scripts, Go backend, Docker smoke
-# - Wails Build: Windows amd64, Linux amd64
-# - Native macOS App Build: existing Swift native app universal zip / dmg
-# - Docker Image CI: multi-arch GHCR image
-# - Release: tag creation, GitHub Release, desktop, native macOS app, and Docker build fan-out
+# - Wails Build: Windows amd64, Linux amd64; tag pushes publish desktop archives with ffmpeg sidecars
+# - Native macOS App Build: Swift native app universal zip / dmg; tag pushes publish ffmpeg-bundled app artifacts
+# - Docker Image CI: tag pushes publish the multi-arch GHCR image
+# - Release: manual workflow_dispatch entry for version resolution, tag creation, GitHub Release creation/update, and same-run artifact fan-out; manual tag pushes publish artifacts through the lower workflows directly
 
 cd macos
 
