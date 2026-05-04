@@ -39,7 +39,7 @@ The native macOS app runs on macOS 13+, both Apple Silicon and Intel. The cross-
 | **HD** (experimental) | Bilibili TV-signed playurl, returns FLV | 1080P | No — TV streams direct from Bilibili CDN |
 | **Ultra** | `dash.video[]+audio[]` muxed locally via ffmpeg | Native (4K / HDR) | Yes — the backend host actively remuxes for the TV |
 
-Switchable from the menu bar or HTTP console. Ultra mode needs ffmpeg — the native macOS app bundles it inside `.app/Contents/Resources/`, Wails2 Windows / Linux release archives include an ffmpeg sidecar next to the executable, and the Docker image installs ffmpeg, so no separate install is needed for release builds.
+Switchable from the menu bar or HTTP console. Ultra mode needs ffmpeg — the native macOS app bundles it inside `.app/Contents/Resources/`, Wails2 Windows / Linux release binaries embed ffmpeg and extract it to the local app cache at runtime, and the Docker image installs ffmpeg, so no separate install is needed for release builds.
 
 ## Install
 
@@ -67,8 +67,8 @@ DMG and drag `BiliCast.app` onto the `Applications` shortcut.
 
 Download the desktop artifact for your platform from [GitHub Releases](https://github.com/jianzhoujz/bilicast/releases):
 
-- Windows: `BiliCastHelper-windows-amd64.zip`; extract it and run `BiliCastHelper.exe`. The archive includes `ffmpeg.exe`.
-- Linux: `BiliCastHelper-linux-amd64.tar.gz`; extract it and run `linux-amd64/BiliCastHelper`. The archive includes `linux-amd64/ffmpeg`.
+- Windows: `BiliCastHelper-windows-amd64.zip`; extract it and run `BiliCastHelper.exe`. ffmpeg is embedded in the exe.
+- Linux: `BiliCastHelper-linux-amd64.tar.gz`; extract it and run `linux-amd64/BiliCastHelper`. ffmpeg is embedded in the binary.
 
 The Wails2 desktop app starts the local HTTP API service and stream proxy, then opens `http://127.0.0.1:18787/console` for control. The console uses the dedicated API prefix `/api/bilicast` with local token bootstrap. The tray/native menu shows or hides the main window and can quit the app; the Wails home page redirects to the console.
 
@@ -224,7 +224,7 @@ node --test tests/extension-smoke.test.mjs
 
 # CI coverage
 # - PR Checks: browser scripts, Go backend, Docker smoke
-# - Wails Build: Windows amd64, Linux amd64; tag pushes publish desktop archives with ffmpeg sidecars
+# - Wails Build: Windows amd64, Linux amd64; tag pushes publish desktop binaries with embedded ffmpeg
 # - Native macOS App Build: Swift native app universal zip / dmg; tag pushes publish ffmpeg-bundled app artifacts
 # - Docker Image CI: tag pushes publish the multi-arch GHCR image
 # - Release: manual workflow_dispatch entry for version resolution, tag creation, GitHub Release creation/update, and same-run artifact fan-out; manual tag pushes publish artifacts through the lower workflows directly

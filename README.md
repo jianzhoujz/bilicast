@@ -30,7 +30,7 @@ macOS 原生 App 支持 macOS 13+，Apple Silicon 和 Intel 都行。跨平台�
 |**高清**（实验性）|B 站 TV 接口签名拿 FLV|1080P|否，电视直连 B 站 CDN|
 |**极清**|`dash.video[]+audio[]` + 本机 ffmpeg 实时合流|与原片一致（4K / HDR）|是，电视播放期间后端主机必须保持运行|
 
-可在菜单栏或 HTTP 控制台切换。极清依赖 ffmpeg —— macOS 原生 App 已经把 ffmpeg 打包在 `.app/Contents/Resources/` 里，Wails2 Windows / Linux 发布包也内置同目录 sidecar，Docker 镜像内置系统 ffmpeg，**无需额外安装**。
+可在菜单栏或 HTTP 控制台切换。极清依赖 ffmpeg —— macOS 原生 App 已经把 ffmpeg 打包在 `.app/Contents/Resources/` 里，Wails2 Windows / Linux 发布版会把 ffmpeg 编进 `BiliCastHelper` 二进制并在运行时释放到本机缓存，Docker 镜像内置系统 ffmpeg，**无需额外安装**。
 
 ## 安装
 
@@ -56,8 +56,8 @@ brew uninstall --cask bilicast
 
 从 [GitHub Releases](https://github.com/jianzhoujz/bilicast/releases) 下载对应桌面端产物：
 
-- Windows：`BiliCastHelper-windows-amd64.zip`，解压后运行 `BiliCastHelper.exe`。压缩包内置 `ffmpeg.exe`。
-- Linux：`BiliCastHelper-linux-amd64.tar.gz`，解压后运行 `linux-amd64/BiliCastHelper`。压缩包内置 `linux-amd64/ffmpeg`。
+- Windows：`BiliCastHelper-windows-amd64.zip`，解压后运行 `BiliCastHelper.exe`。ffmpeg 已编进该 exe。
+- Linux：`BiliCastHelper-linux-amd64.tar.gz`，解压后运行 `linux-amd64/BiliCastHelper`。ffmpeg 已编进该二进制。
 
 Wails2 桌面端启动本地 HTTP API 服务和流代理，控制页面统一走 `http://127.0.0.1:18787/console`。控制台使用专属 API 前缀 `/api/bilicast` 并自动读取本机 token；托盘/原生菜单负责显示、隐藏主窗口与退出应用，首页跳转到这个控制台。
 
@@ -198,7 +198,7 @@ node --test tests/extension-smoke.test.mjs
 
 # CI 覆盖
 # - PR Checks：浏览器脚本、Go 后端、Docker smoke
-# - Wails Build：Windows amd64、Linux amd64；tag push 会发布带 ffmpeg sidecar 的桌面包
+# - Wails Build：Windows amd64、Linux amd64；tag push 会发布内置 ffmpeg 的桌面二进制
 # - Native macOS App Build：Swift 原生 App universal zip / dmg；tag push 会发布带 ffmpeg 的 .app/.dmg
 # - Docker Image CI：tag push 会发布 GHCR 多架构镜像
 # - Release：手动 workflow_dispatch 入口，负责自动算版本、打 tag、创建/更新 GitHub Release，并在同一轮调用产物构建；手动 push tag 时由下层三个 CI 直接发布产物

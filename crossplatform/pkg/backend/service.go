@@ -325,6 +325,9 @@ func contentTypeFor(kind string) string {
 }
 
 func LocateFFmpeg() string {
+	if path := LocateEmbeddedFFmpeg(); path != "" {
+		return path
+	}
 	name := "ffmpeg"
 	if runtime.GOOS == "windows" {
 		name = "ffmpeg.exe"
