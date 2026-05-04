@@ -164,7 +164,6 @@ jobs:
           set -euo pipefail
           mkdir -p release-assets
           cp artifacts/* release-assets/
-          rm -f release-assets/BiliCastHelper-windows-amd64.exe release-assets/BiliCastHelper-windows-amd64.exe.sha256
           TAG="${{ inputs.tag || github.ref_name }}"
           BASE_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}"
           cat > release-assets/latest.json <<JSON
