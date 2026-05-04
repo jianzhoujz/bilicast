@@ -48,6 +48,11 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Resolved native macOS app version: $VERSION"
 
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: crossplatform/go.mod
+          cache-dependency-path: crossplatform/go.sum
+
       - name: Swift version
         run: swift --version
 
@@ -63,21 +68,21 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ../bin dist
-          test -x build/BiliCastHelper.app/Contents/Resources/ffmpeg
-          ditto -c -k --sequesterRsrc --keepParent build/BiliCastHelper.app "../bin/BiliCastHelper-${VERSION}-macOS-universal.zip"
-          shasum -a 256 "../bin/BiliCastHelper-${VERSION}-macOS-universal.zip" | awk '{print $1}' > "../bin/BiliCastHelper-${VERSION}-macOS-universal.zip.sha256"
+          test -x build/BiliCast.app/Contents/Resources/ffmpeg
+          ditto -c -k --sequesterRsrc --keepParent build/BiliCast.app "../bin/BiliCast-${VERSION}-macOS-universal.zip"
+          shasum -a 256 "../bin/BiliCast-${VERSION}-macOS-universal.zip" | awk '{print $1}' > "../bin/BiliCast-${VERSION}-macOS-universal.zip.sha256"
 
           rm -rf build/native-dmg-stage
           mkdir -p build/native-dmg-stage
-          cp -R build/BiliCastHelper.app build/native-dmg-stage/
+          cp -R build/BiliCast.app build/native-dmg-stage/
 
           hdiutil create \
-            -volname "BiliCastHelper" \
+            -volname "BiliCast" \
             -srcfolder build/native-dmg-stage \
             -ov \
             -format UDZO \
-            "../bin/BiliCastHelper-${VERSION}.dmg"
-          shasum -a 256 "../bin/BiliCastHelper-${VERSION}.dmg" | awk '{print $1}' > "../bin/BiliCastHelper-${VERSION}.dmg.sha256"
+            "../bin/BiliCast-${VERSION}.dmg"
+          shasum -a 256 "../bin/BiliCast-${VERSION}.dmg" | awk '{print $1}' > "../bin/BiliCast-${VERSION}.dmg.sha256"
 
           ls -lh ../bin
 
@@ -86,10 +91,10 @@ jobs:
         with:
           name: native-macos-universal
           path: |
-            bin/BiliCastHelper-*-macOS-universal.zip
-            bin/BiliCastHelper-*-macOS-universal.zip.sha256
-            bin/BiliCastHelper-*.dmg
-            bin/BiliCastHelper-*.dmg.sha256
+            bin/BiliCast-*-macOS-universal.zip
+            bin/BiliCast-*-macOS-universal.zip.sha256
+            bin/BiliCast-*.dmg
+            bin/BiliCast-*.dmg.sha256
 
       - name: Attach native macOS artifacts to release
         if: startsWith(github.ref, 'refs/tags/') || inputs.tag != ''
@@ -97,10 +102,10 @@ jobs:
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}
           files: |
-            bin/BiliCastHelper-*-macOS-universal.zip
-            bin/BiliCastHelper-*-macOS-universal.zip.sha256
-            bin/BiliCastHelper-*.dmg
-            bin/BiliCastHelper-*.dmg.sha256
+            bin/BiliCast-*-macOS-universal.zip
+            bin/BiliCast-*-macOS-universal.zip.sha256
+            bin/BiliCast-*.dmg
+            bin/BiliCast-*.dmg.sha256
           append_body: true
           body: |
 
@@ -108,6 +113,6 @@ jobs:
 
             ## Native macOS app
 
-            - `BiliCastHelper-VERSION.dmg`
-            - `BiliCastHelper-VERSION-macOS-universal.zip`
+            - `BiliCast-VERSION.dmg`
+            - `BiliCast-VERSION-macOS-universal.zip`
             - SHA256 checksum files are included for both artifacts.
