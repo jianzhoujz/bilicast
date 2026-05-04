@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliCast
 // @namespace    https://github.com/jianzhoujz/bilicast
-// @version      0.3.3
+// @version      0.4.2
 // @description  在 B 站网页视频页注入"投屏"按钮，调用 Mac 本地服务把视频投到 DLNA 设备。三档清晰度（MP4/FLV/DASH-remux）。
 // @author       BiliCast
 // @match        https://www.bilibili.com/video/*
@@ -1029,7 +1029,7 @@
     }
   }
 
-  console.info('[BiliCast] v0.3.3 loaded; pathname=' + location.pathname +
+  console.info('[BiliCast] v0.4.2 loaded; pathname=' + location.pathname +
                '; isVideoPage=' + isBilibiliVideoPage() +
                '; isBangumiPage=' + isBangumiPage());
   bootstrap();

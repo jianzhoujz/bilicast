@@ -1029,7 +1029,7 @@
     }
   }
 
-  console.info('[BiliCast] v0.3.3 loaded; pathname=' + location.pathname +
+  console.info('[BiliCast] v0.4.2 loaded; pathname=' + location.pathname +
                '; isVideoPage=' + isBilibiliVideoPage() +
                '; isBangumiPage=' + isBangumiPage());
   bootstrap();
