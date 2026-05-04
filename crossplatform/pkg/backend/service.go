@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -323,13 +325,34 @@ func contentTypeFor(kind string) string {
 }
 
 func LocateFFmpeg() string {
+	name := "ffmpeg"
+	if runtime.GOOS == "windows" {
+		name = "ffmpeg.exe"
+	}
+	if exe, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exe)
+		for _, candidate := range []string{
+			filepath.Join(exeDir, name),
+			filepath.Join(exeDir, "bin", name),
+			filepath.Join(exeDir, "resources", name),
+		} {
+			if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+				return candidate
+			}
+		}
+	}
 	for _, candidate := range []string{"/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/opt/local/bin/ffmpeg", "/usr/bin/ffmpeg"} {
 		if _, err := os.Stat(candidate); err == nil {
 			return candidate
 		}
 	}
-	if path, err := exec.LookPath("ffmpeg"); err == nil {
+	if path, err := exec.LookPath(name); err == nil {
 		return path
+	}
+	if name != "ffmpeg" {
+		if path, err := exec.LookPath("ffmpeg"); err == nil {
+			return path
+		}
 	}
 	return ""
 }
