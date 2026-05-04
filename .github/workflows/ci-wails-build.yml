@@ -41,7 +41,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          New-Item -ItemType Directory -Force -Path ..\tmp, pkg\backend\ffmpeg_assets | Out-Null
+          New-Item -ItemType Directory -Force -Path ..\tmp, ..\bin | Out-Null
           $zip = "..\tmp\ffmpeg-windows.zip"
           Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile $zip
           Expand-Archive -Force $zip -DestinationPath ..\tmp\ffmpeg
@@ -50,8 +50,8 @@ jobs:
             Write-Error "ffmpeg.exe not found in downloaded archive"
             exit 1
           }
-          Copy-Item $ffmpeg.FullName pkg\backend\ffmpeg_assets\ffmpeg_windows_amd64.exe
-          if ((Get-Item pkg\backend\ffmpeg_assets\ffmpeg_windows_amd64.exe).Length -lt 1000000) {
+          Copy-Item $ffmpeg.FullName ..\bin\ffmpeg.exe
+          if ((Get-Item ..\bin\ffmpeg.exe).Length -lt 1000000) {
             Write-Error "downloaded ffmpeg.exe is suspiciously small"
             exit 1
           }
@@ -73,10 +73,9 @@ jobs:
             Get-ChildItem build\bin -Recurse -ErrorAction SilentlyContinue
             exit 1
           }
-          Copy-Item $exe.FullName ..\bin\BiliCastHelper-windows-amd64.exe
-          Get-FileHash -Algorithm SHA256 ..\bin\BiliCastHelper-windows-amd64.exe | ForEach-Object { $_.Hash.ToLower() } | Out-File -Encoding ascii ..\bin\BiliCastHelper-windows-amd64.exe.sha256
           New-Item -ItemType Directory -Force -Path ..\bin\windows-amd64 | Out-Null
-          Copy-Item ..\bin\BiliCastHelper-windows-amd64.exe ..\bin\windows-amd64\BiliCastHelper.exe
+          Copy-Item $exe.FullName ..\bin\windows-amd64\BiliCastHelper.exe
+          Copy-Item ..\bin\ffmpeg.exe ..\bin\windows-amd64\ffmpeg.exe
           Compress-Archive -Force -Path ..\bin\windows-amd64\* -DestinationPath ..\bin\BiliCastHelper-windows-amd64.zip
           Get-FileHash -Algorithm SHA256 ..\bin\BiliCastHelper-windows-amd64.zip | ForEach-Object { $_.Hash.ToLower() } | Out-File -Encoding ascii ..\bin\BiliCastHelper-windows-amd64.zip.sha256
 
@@ -84,8 +83,6 @@ jobs:
         with:
           name: wails-windows-amd64
           path: |
-            bin/BiliCastHelper-windows-amd64.exe
-            bin/BiliCastHelper-windows-amd64.exe.sha256
             bin/BiliCastHelper-windows-amd64.zip
             bin/BiliCastHelper-windows-amd64.zip.sha256
 
@@ -113,7 +110,7 @@ jobs:
       - name: Download ffmpeg
         run: |
           set -euo pipefail
-          mkdir -p ../tmp pkg/backend/ffmpeg_assets
+          mkdir -p ../tmp ../bin
           curl -fL --retry 3 --retry-delay 2 -o ../tmp/ffmpeg-linux.tar.xz https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
           tar -xJf ../tmp/ffmpeg-linux.tar.xz -C ../tmp
           FFMPEG=$(find ../tmp -type f -name ffmpeg -perm -111 | head -n 1)
@@ -122,9 +119,9 @@ jobs:
             find ../tmp -maxdepth 3 -type f | sed -n '1,80p'
             exit 1
           fi
-          cp "$FFMPEG" pkg/backend/ffmpeg_assets/ffmpeg_linux_amd64
-          chmod +x pkg/backend/ffmpeg_assets/ffmpeg_linux_amd64
-          test $(wc -c < pkg/backend/ffmpeg_assets/ffmpeg_linux_amd64) -gt 1000000
+          cp "$FFMPEG" ../bin/ffmpeg
+          chmod +x ../bin/ffmpeg
+          test $(wc -c < ../bin/ffmpeg) -gt 1000000
 
       - name: Install Wails
         run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
@@ -142,21 +139,18 @@ jobs:
             find build/bin -maxdepth 2 -print
             exit 1
           fi
-          cp "$BIN" ../bin/BiliCastHelper-linux-amd64
-          chmod +x ../bin/BiliCastHelper-linux-amd64
-          sha256sum ../bin/BiliCastHelper-linux-amd64 | awk '{print $1}' > ../bin/BiliCastHelper-linux-amd64.sha256
           mkdir -p ../bin/linux-amd64
-          cp ../bin/BiliCastHelper-linux-amd64 ../bin/linux-amd64/BiliCastHelper
-          chmod +x ../bin/linux-amd64/BiliCastHelper
+          cp "$BIN" ../bin/linux-amd64/BiliCastHelper
+          cp ../bin/ffmpeg ../bin/linux-amd64/ffmpeg
+          chmod +x ../bin/linux-amd64/BiliCastHelper ../bin/linux-amd64/ffmpeg
           (cd ../bin && tar -czf BiliCastHelper-linux-amd64.tar.gz linux-amd64)
+          tar -tzf ../bin/BiliCastHelper-linux-amd64.tar.gz | grep -E '(^|/)ffmpeg$'
           sha256sum ../bin/BiliCastHelper-linux-amd64.tar.gz | awk '{print $1}' > ../bin/BiliCastHelper-linux-amd64.tar.gz.sha256
 
       - uses: actions/upload-artifact@v7
         with:
           name: wails-linux-amd64
           path: |
-            bin/BiliCastHelper-linux-amd64
-            bin/BiliCastHelper-linux-amd64.sha256
             bin/BiliCastHelper-linux-amd64.tar.gz
             bin/BiliCastHelper-linux-amd64.tar.gz.sha256
 
@@ -218,8 +212,6 @@ jobs:
             ## Wails desktop builds
 
             - Windows green package: `BiliCastHelper-windows-amd64.zip`
-            - Windows single executable: `BiliCastHelper-windows-amd64.exe`
             - Linux portable archive: `BiliCastHelper-linux-amd64.tar.gz`
-            - Linux single executable: `BiliCastHelper-linux-amd64`
-            - Desktop binaries embed ffmpeg, extracted to the local app cache at runtime.
+            - Desktop archives include an ffmpeg sidecar binary.
             - Every artifact includes a `.sha256` checksum file.

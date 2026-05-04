@@ -39,7 +39,7 @@ The native macOS app runs on macOS 13+, both Apple Silicon and Intel. The cross-
 | **HD** (experimental) | Bilibili TV-signed playurl, returns FLV | 1080P | No — TV streams direct from Bilibili CDN |
 | **Ultra** | `dash.video[]+audio[]` muxed locally via ffmpeg | Native (4K / HDR) | Yes — the backend host actively remuxes for the TV |
 
-Switchable from the menu bar or HTTP console. Ultra mode needs ffmpeg — the native macOS app bundles it inside `.app/Contents/Resources/`, Wails2 Windows / Linux release binaries embed ffmpeg and extract it to the local app cache at runtime, and the Docker image installs ffmpeg, so no separate install is needed for release builds.
+Switchable from the menu bar or HTTP console. Ultra mode needs ffmpeg — the native macOS app bundles it inside `.app/Contents/Resources/`, Wails2 Windows / Linux portable archives ship an ffmpeg sidecar next to the app, and the Docker image installs ffmpeg, so no separate install is needed for release builds.
 
 ## Install
 
@@ -67,12 +67,10 @@ DMG and drag `BiliCast.app` onto the `Applications` shortcut.
 
 Download the desktop artifact for your platform from [GitHub Releases](https://github.com/jianzhoujz/bilicast/releases):
 
-- Windows green package: `BiliCastHelper-windows-amd64.zip`; extract it and run `BiliCastHelper.exe`.
-- Windows single file: `BiliCastHelper-windows-amd64.exe`; download it and run it directly.
-- Linux portable archive: `BiliCastHelper-linux-amd64.tar.gz`; extract it and run `linux-amd64/BiliCastHelper`.
-- Linux single file: `BiliCastHelper-linux-amd64`; download it, then run `chmod +x BiliCastHelper-linux-amd64 && ./BiliCastHelper-linux-amd64`.
+- Windows green package: `BiliCastHelper-windows-amd64.zip`; extract it and run `BiliCastHelper.exe`. The same directory already includes `ffmpeg.exe`.
+- Linux portable archive: `BiliCastHelper-linux-amd64.tar.gz`; extract it and run `linux-amd64/BiliCastHelper`. The same directory already includes `ffmpeg`.
 
-Wails2 Windows / Linux release artifacts embed ffmpeg in the main program. On first Ultra-mode use, the app extracts the embedded ffmpeg binary to the local app cache and runs it from there.
+Wails2 Windows / Linux release artifacts use portable archives. The app prefers the ffmpeg sidecar in the same directory as the main program.
 
 The Wails2 desktop app starts the local HTTP API service and stream proxy, then opens `http://127.0.0.1:18787/console` for control. The console uses the dedicated API prefix `/api/bilicast` with local token bootstrap. The tray/native menu shows or hides the main window and can quit the app; the Wails home page redirects to the console.
 
@@ -89,10 +87,6 @@ docker compose up --build
 # Console: http://127.0.0.1:18787/console
 
 # Build Wails2 desktop app from source
-# Local source builds use placeholder ffmpeg assets by default. For an embedded-ffmpeg release build,
-# overwrite these files with real ffmpeg binaries before running `wails build`:
-# - Linux:   crossplatform/pkg/backend/ffmpeg_assets/ffmpeg_linux_amd64
-# - Windows: crossplatform/pkg/backend/ffmpeg_assets/ffmpeg_windows_amd64.exe
 go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
 wails build -tags wails
 ```
@@ -232,7 +226,7 @@ node --test tests/extension-smoke.test.mjs
 
 # CI coverage
 # - PR Checks: browser scripts, Go backend, Docker smoke
-# - Wails Build: Windows amd64, Linux amd64; tag pushes publish desktop binaries with embedded ffmpeg
+# - Wails Build: Windows amd64, Linux amd64; tag pushes publish portable desktop archives with ffmpeg sidecars
 # - Native macOS App Build: Swift native app universal zip / dmg; tag pushes publish ffmpeg-bundled app artifacts
 # - Docker Image CI: tag pushes publish the multi-arch GHCR image
 # - Release: manual workflow_dispatch entry for version resolution, tag creation, GitHub Release creation/update, and same-run artifact fan-out; manual tag pushes publish artifacts through the lower workflows directly

@@ -4,7 +4,7 @@ This directory contains the Wails2-based cross-platform backend track.
 
 ## Runtime targets
 
-- **Wails desktop client**: Windows / Linux desktop shell, built with Wails2. Release binaries embed ffmpeg for DASH remux mode and extract it to the local app cache at runtime.
+- **Wails desktop client**: Windows / Linux desktop shell, built with Wails2. Release archives include an ffmpeg sidecar binary for DASH remux mode.
 - **Native desktop entry**: Windows / Linux use a tray/native-menu action surface for showing the main window, hiding the main window, and quitting the app.
 - **Daemon / server mode**: `bilicastd`, a plain Go HTTP backend for local development and headless hosts. Install `ffmpeg` on the host if you use DASH remux mode.
 - **Docker mode**: containerized `bilicastd` with ffmpeg included.
@@ -65,12 +65,10 @@ go run ./cmd/bilicastd
 
 Release artifacts are published from the `Wails Build` workflow on version tags:
 
-- Windows green package: `BiliCastHelper-windows-amd64.zip`, containing `BiliCastHelper.exe` with embedded ffmpeg.
-- Windows single executable: `BiliCastHelper-windows-amd64.exe`, also with embedded ffmpeg.
-- Linux portable archive: `BiliCastHelper-linux-amd64.tar.gz`, containing `linux-amd64/BiliCastHelper` with embedded ffmpeg.
-- Linux single executable: `BiliCastHelper-linux-amd64`, also with embedded ffmpeg.
+- Windows green package: `BiliCastHelper-windows-amd64.zip`, containing `BiliCastHelper.exe` and `ffmpeg.exe`.
+- Linux portable archive: `BiliCastHelper-linux-amd64.tar.gz`, containing `linux-amd64/BiliCastHelper` and `linux-amd64/ffmpeg`.
 
-The release workflow downloads a real platform ffmpeg before `wails build` and overwrites the tiny placeholder files in `pkg/backend/ffmpeg_assets/`, so the final app binary carries the ffmpeg bytes. The placeholders stay small in git; local source builds fall back to system ffmpeg unless you replace the platform asset with a real binary before building. Linux users downloading the raw binary may need `chmod +x BiliCastHelper-linux-amd64`; the `.tar.gz` archive preserves executable bits.
+The release workflow downloads a real platform ffmpeg and packages it next to the Wails desktop binary. The app prefers that same-directory ffmpeg sidecar before checking system paths.
 
 Install Wails2, then build from this directory when developing locally:
 
@@ -79,7 +77,7 @@ go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
 wails build -tags wails
 ```
 
-The desktop app starts the new HTTP API service and stream proxy, then redirects to the HTTP console for status, token, preferences, devices, and casting controls. For release builds, the backend extracts embedded ffmpeg to the local app cache first, then checks system ffmpeg paths as fallbacks.
+The desktop app starts the new HTTP API service and stream proxy, then redirects to the HTTP console for status, token, preferences, devices, and casting controls. For release builds, the backend finds `ffmpeg` / `ffmpeg.exe` next to the executable before checking system paths.
 
 Desktop shell behavior:
 
@@ -122,7 +120,7 @@ export BILICAST_DEVICES_JSON='[{"id":"tv","name":"Living Room TV","avTransportCo
 
 ## Current scope
 
-The cross-platform backend now covers shared API, token/config persistence, quality preference handling, stream candidate picking, direct stream proxying with Range forwarding, DASH remux streaming through embedded or host ffmpeg, Wails desktop shell actions, Docker packaging, and automatic SSDP device discovery.
+The cross-platform backend now covers shared API, token/config persistence, quality preference handling, stream candidate picking, direct stream proxying with Range forwarding, DASH remux streaming through packaged or host ffmpeg, Wails desktop shell actions, Docker packaging, and automatic SSDP device discovery.
 
 ### SSDP device discovery
 

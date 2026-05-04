@@ -103,7 +103,7 @@ Docker：`cd crossplatform && docker compose up --build`。compose 只把控制 
 GitHub Actions 拆成多条 workflow：
 
 - `.github/workflows/pr-checks.yml`：PR / feature 分支检查，覆盖浏览器脚本、crossplatform Go 后端、Docker build smoke。
-- `.github/workflows/ci-wails-build.yml`：Wails2 桌面端自动构建，产出 Windows amd64 zip 绿色包 + 单 exe、Linux amd64 tar.gz 绿色包 + 单可执行文件，以及 sha256。
+- `.github/workflows/ci-wails-build.yml`：Wails2 桌面端自动构建，产出 Windows amd64 zip 绿色包、Linux amd64 tar.gz 绿色包与 sha256，包内携带 ffmpeg sidecar。
 - `.github/workflows/macos-native-app-build.yml`：现有 Swift 原生 macOS App 自动打包，产出 universal zip / dmg 与 sha256；这是原生 App，和 Wails2 macOS 无关。
 - `.github/workflows/ci-docker-build.yml`：Docker 多架构镜像构建，tag / release 时推送 GHCR。
 - `.github/workflows/release.yml`：手动发版入口，自动解析/创建 tag、创建 Release，并 fan-out 调用 Wails、原生 macOS App 与 Docker 构建。
