@@ -63,12 +63,12 @@ go run ./cmd/bilicastd
 
 ## Wails2 desktop
 
-Release archives are published from the `Wails Build` workflow on version tags:
+Release artifacts are published from the `Wails Build` workflow on version tags:
 
-- Windows: `BiliCastHelper-windows-amd64.zip`, containing only `BiliCastHelper.exe` with embedded ffmpeg.
-- Linux: `BiliCastHelper-linux-amd64.tar.gz`, containing only `linux-amd64/BiliCastHelper` with embedded ffmpeg.
+- Windows: `BiliCastHelper-windows-amd64.exe`, a single executable with embedded ffmpeg.
+- Linux: `BiliCastHelper-linux-amd64`, a single executable with embedded ffmpeg.
 
-The release workflow downloads a real platform ffmpeg before `wails build` and overwrites the tiny placeholder files in `pkg/backend/ffmpeg_assets/`, so the final app binary carries the ffmpeg bytes. The placeholders stay small in git; local source builds fall back to system ffmpeg unless you replace the platform asset with a real binary before building.
+The release workflow downloads a real platform ffmpeg before `wails build` and overwrites the tiny placeholder files in `pkg/backend/ffmpeg_assets/`, so the final app binary carries the ffmpeg bytes. The placeholders stay small in git; local source builds fall back to system ffmpeg unless you replace the platform asset with a real binary before building. Linux users may need `chmod +x BiliCastHelper-linux-amd64` after browser download because HTTP downloads do not preserve executable bits.
 
 Install Wails2, then build from this directory when developing locally:
 
