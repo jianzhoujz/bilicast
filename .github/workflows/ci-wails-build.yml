@@ -143,16 +143,16 @@ jobs:
           cp "$BIN" ../bin/linux-amd64/BiliCastHelper
           cp ../bin/ffmpeg ../bin/linux-amd64/ffmpeg
           chmod +x ../bin/linux-amd64/BiliCastHelper ../bin/linux-amd64/ffmpeg
-          (cd ../bin && tar -czf BiliCastHelper-linux-amd64.tar.gz linux-amd64)
-          tar -tzf ../bin/BiliCastHelper-linux-amd64.tar.gz | grep -E '(^|/)ffmpeg$'
-          sha256sum ../bin/BiliCastHelper-linux-amd64.tar.gz | awk '{print $1}' > ../bin/BiliCastHelper-linux-amd64.tar.gz.sha256
+          (cd ../bin && zip -r BiliCastHelper-linux-amd64.zip linux-amd64)
+          python3 -c "import zipfile; z=zipfile.ZipFile('../bin/BiliCastHelper-linux-amd64.zip'); names=set(z.namelist()); assert 'linux-amd64/BiliCastHelper' in names; assert 'linux-amd64/ffmpeg' in names"
+          sha256sum ../bin/BiliCastHelper-linux-amd64.zip | awk '{print $1}' > ../bin/BiliCastHelper-linux-amd64.zip.sha256
 
       - uses: actions/upload-artifact@v7
         with:
           name: wails-linux-amd64
           path: |
-            bin/BiliCastHelper-linux-amd64.tar.gz
-            bin/BiliCastHelper-linux-amd64.tar.gz.sha256
+            bin/BiliCastHelper-linux-amd64.zip
+            bin/BiliCastHelper-linux-amd64.zip.sha256
 
   create-release-assets:
     name: Attach Wails artifacts to release
@@ -179,7 +179,7 @@ jobs:
             "release_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
             "files": {
               "windows-amd64": { "name": "BiliCastHelper-windows-amd64.zip", "url": "${BASE_URL}/BiliCastHelper-windows-amd64.zip" },
-              "linux-amd64": { "name": "BiliCastHelper-linux-amd64.tar.gz", "url": "${BASE_URL}/BiliCastHelper-linux-amd64.tar.gz" }
+              "linux-amd64": { "name": "BiliCastHelper-linux-amd64.zip", "url": "${BASE_URL}/BiliCastHelper-linux-amd64.zip" }
             }
           }
           JSON
@@ -198,6 +198,8 @@ jobs:
           gh release delete-asset "$TAG" BiliCastHelper-linux-amd64.sha256 --repo "${{ github.repository }}" -y || true
           gh release delete-asset "$TAG" BiliCastHelper-linux-amd64.tar.gz --repo "${{ github.repository }}" -y || true
           gh release delete-asset "$TAG" BiliCastHelper-linux-amd64.tar.gz.sha256 --repo "${{ github.repository }}" -y || true
+          gh release delete-asset "$TAG" BiliCastHelper-linux-amd64.zip --repo "${{ github.repository }}" -y || true
+          gh release delete-asset "$TAG" BiliCastHelper-linux-amd64.zip.sha256 --repo "${{ github.repository }}" -y || true
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v3
@@ -212,6 +214,6 @@ jobs:
             ## Wails desktop builds
 
             - Windows green package: `BiliCastHelper-windows-amd64.zip`
-            - Linux portable archive: `BiliCastHelper-linux-amd64.tar.gz`
+            - Linux green package: `BiliCastHelper-linux-amd64.zip`
             - Desktop archives include an ffmpeg sidecar binary.
             - Every artifact includes a `.sha256` checksum file.

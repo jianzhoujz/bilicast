@@ -57,7 +57,7 @@ brew uninstall --cask bilicast
 从 [GitHub Releases](https://github.com/jianzhoujz/bilicast/releases) 下载对应桌面端产物：
 
 - Windows 绿色版：`BiliCastHelper-windows-amd64.zip`，解压后运行 `BiliCastHelper.exe`，同目录已带 `ffmpeg.exe`。
-- Linux 绿色包：`BiliCastHelper-linux-amd64.tar.gz`，解压后运行 `linux-amd64/BiliCastHelper`，同目录已带 `ffmpeg`。
+- Linux 绿色版：`BiliCastHelper-linux-amd64.zip`，解压后运行 `linux-amd64/BiliCastHelper`，同目录已带 `ffmpeg`。
 
 Wails2 Windows / Linux 发布产物采用绿色压缩包方案；主程序启动时优先调用同目录的 ffmpeg sidecar。
 

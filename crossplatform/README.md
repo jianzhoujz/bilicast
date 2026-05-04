@@ -66,7 +66,7 @@ go run ./cmd/bilicastd
 Release artifacts are published from the `Wails Build` workflow on version tags:
 
 - Windows green package: `BiliCastHelper-windows-amd64.zip`, containing `BiliCastHelper.exe` and `ffmpeg.exe`.
-- Linux portable archive: `BiliCastHelper-linux-amd64.tar.gz`, containing `linux-amd64/BiliCastHelper` and `linux-amd64/ffmpeg`.
+- Linux green package: `BiliCastHelper-linux-amd64.zip`, containing `linux-amd64/BiliCastHelper` and `linux-amd64/ffmpeg`.
 
 The release workflow downloads a real platform ffmpeg and packages it next to the Wails desktop binary. The app prefers that same-directory ffmpeg sidecar before checking system paths.
 
