@@ -1,8 +1,11 @@
 name: Release
 
-run-name: Release ${{ inputs.version != '' && inputs.version || 'auto' }}
+run-name: Release ${{ github.ref_type == 'tag' && github.ref_name || (github.event_name == 'workflow_dispatch' && inputs.version != '' && inputs.version || 'auto') }}
 
 on:
+  push:
+    tags:
+      - "v[0-9]*.[0-9]*.[0-9]*"
   workflow_dispatch:
     inputs:
       version:
@@ -17,7 +20,7 @@ permissions:
 
 jobs:
   release:
-    name: Create release tag
+    name: Prepare release
     runs-on: ubuntu-latest
     outputs:
       resolved_version: ${{ steps.resolve-version.outputs.version }}
@@ -31,9 +34,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          INPUT_VERSION="${{ inputs.version }}"
+          INPUT_VERSION="${{ github.event_name == 'workflow_dispatch' && inputs.version || '' }}"
           INPUT_VERSION="${INPUT_VERSION//[[:space:]]/}"
-          if [[ -n "$INPUT_VERSION" ]]; then
+          TAG_ALREADY_EXISTS=false
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME}"
+            TAG_ALREADY_EXISTS=true
+          elif [[ -n "$INPUT_VERSION" ]]; then
             VERSION="$INPUT_VERSION"
           else
             git fetch --tags --force
@@ -50,7 +57,7 @@ jobs:
             echo "Invalid version: $VERSION" >&2
             exit 1
           fi
-          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+          if [[ "$TAG_ALREADY_EXISTS" == "false" ]] && git rev-parse "$VERSION" >/dev/null 2>&1; then
             echo "Tag already exists: $VERSION" >&2
             exit 1
           fi
@@ -58,6 +65,7 @@ jobs:
           echo "Resolved version: $VERSION" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Sync native app version
+        if: github.ref_type != 'tag'
         shell: bash
         run: |
           set -euo pipefail
@@ -82,12 +90,14 @@ jobs:
           fi
 
       - name: Create and push tag
+        if: github.ref_type != 'tag'
         run: |
           VERSION="${{ steps.resolve-version.outputs.version }}"
           git tag "$VERSION"
           git push origin "$VERSION"
 
       - name: Create GitHub release
+        if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.resolve-version.outputs.version }}
@@ -98,6 +108,7 @@ jobs:
 
   docker:
     name: Build Docker image
+    if: github.ref_type == 'tag'
     needs: release
     uses: ./.github/workflows/ci-docker-build.yml
     with:
@@ -108,6 +119,7 @@ jobs:
 
   wails:
     name: Build Wails desktop artifacts
+    if: github.ref_type == 'tag'
     needs: release
     uses: ./.github/workflows/ci-wails-build.yml
     with:
@@ -117,6 +129,7 @@ jobs:
 
   native-macos:
     name: Build native macOS app
+    if: github.ref_type == 'tag'
     needs: release
     uses: ./.github/workflows/macos-native-app-build.yml
     with:

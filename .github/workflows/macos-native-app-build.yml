@@ -56,6 +56,21 @@ jobs:
       - name: Swift version
         run: swift --version
 
+      - name: Sync native source version
+        env:
+          APP_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+          app_version = os.environ['APP_VERSION']
+          p = Path('Sources/BiliCastCore/Version.swift')
+          s = p.read_text()
+          s = re.sub(r'public static let version = "[^"]+"', f'public static let version = "{app_version}"', s)
+          p.write_text(s)
+          PY
+
       - name: Build native app bundle
         env:
           APP_VERSION: ${{ steps.version.outputs.version }}
