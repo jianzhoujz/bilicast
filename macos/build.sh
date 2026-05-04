@@ -109,17 +109,45 @@ fi
 
 # --- ffmpeg ---
 FFMPEG_LIB="$ROOT/lib/ffmpeg"
+FFMPEG_DEST="$RESOURCES_DIR/ffmpeg"
+
+is_lfs_pointer() {
+  [[ -f "$1" ]] && head -n 1 "$1" | grep -qx 'version https://git-lfs.github.com/spec/v1'
+}
+
+bundle_ffmpeg() {
+  local source="$1"
+  cp "$source" "$FFMPEG_DEST"
+  chmod +x "$FFMPEG_DEST"
+  if is_lfs_pointer "$FFMPEG_DEST"; then
+    echo "  ERROR: bundled ffmpeg is a Git LFS pointer, not a binary" >&2
+    return 1
+  fi
+  if [[ ! -s "$FFMPEG_DEST" ]]; then
+    echo "  ERROR: bundled ffmpeg is empty" >&2
+    return 1
+  fi
+}
+
 if [[ "${BILICAST_SKIP_FFMPEG:-0}" == "1" ]]; then
   echo "  [skip] ffmpeg (BILICAST_SKIP_FFMPEG=1)"
-elif [[ -f "$FFMPEG_LIB" ]]; then
-  cp "$FFMPEG_LIB" "$RESOURCES_DIR/ffmpeg"
+elif [[ -f "$FFMPEG_LIB" ]] && ! is_lfs_pointer "$FFMPEG_LIB"; then
+  bundle_ffmpeg "$FFMPEG_LIB"
   echo "  ffmpeg (from lib/)"
 else
-  echo "  fetching ffmpeg..."
+  if [[ -f "$FFMPEG_LIB" ]]; then
+    echo "  local ffmpeg is a Git LFS pointer; fetching real binary..."
+  else
+    echo "  fetching ffmpeg..."
+  fi
   "$ROOT/tools/fetch-ffmpeg.sh" "$FFMPEG_LIB" && {
-    cp "$FFMPEG_LIB" "$RESOURCES_DIR/ffmpeg"
+    bundle_ffmpeg "$FFMPEG_LIB"
     echo "  ffmpeg (downloaded → lib/)"
   } || {
+    if [[ "${BILICAST_REQUIRE_FFMPEG:-0}" == "1" ]]; then
+      echo "  ERROR: ffmpeg is required for this build" >&2
+      exit 1
+    fi
     echo "  WARNING: ffmpeg download failed — app will rely on system ffmpeg" >&2
   }
 fi

@@ -36,6 +36,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.tag || github.ref }}
+          lfs: true
 
       - name: Resolve version
         id: version
@@ -78,6 +79,7 @@ jobs:
         env:
           APP_VERSION: ${{ steps.version.outputs.version }}
           APP_BUILD: ${{ github.run_number }}
+          BILICAST_REQUIRE_FFMPEG: "1"
         run: ./build.sh
 
       - name: Package app zip and simple dmg
@@ -87,6 +89,8 @@ jobs:
           set -euo pipefail
           mkdir -p ../bin dist
           test -x build/BiliCast.app/Contents/Resources/ffmpeg
+          test $(wc -c < build/BiliCast.app/Contents/Resources/ffmpeg) -gt 1000000
+          ! grep -q 'git-lfs.github.com/spec/v1' build/BiliCast.app/Contents/Resources/ffmpeg
           ditto -c -k --sequesterRsrc --keepParent build/BiliCast.app "../bin/BiliCast-${VERSION}-macOS-universal.zip"
           shasum -a 256 "../bin/BiliCast-${VERSION}-macOS-universal.zip" | awk '{print $1}' > "../bin/BiliCast-${VERSION}-macOS-universal.zip.sha256"
 
