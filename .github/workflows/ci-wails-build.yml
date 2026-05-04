@@ -75,6 +75,10 @@ jobs:
           }
           Copy-Item $exe.FullName ..\bin\BiliCastHelper-windows-amd64.exe
           Get-FileHash -Algorithm SHA256 ..\bin\BiliCastHelper-windows-amd64.exe | ForEach-Object { $_.Hash.ToLower() } | Out-File -Encoding ascii ..\bin\BiliCastHelper-windows-amd64.exe.sha256
+          New-Item -ItemType Directory -Force -Path ..\bin\windows-amd64 | Out-Null
+          Copy-Item ..\bin\BiliCastHelper-windows-amd64.exe ..\bin\windows-amd64\BiliCastHelper.exe
+          Compress-Archive -Force -Path ..\bin\windows-amd64\* -DestinationPath ..\bin\BiliCastHelper-windows-amd64.zip
+          Get-FileHash -Algorithm SHA256 ..\bin\BiliCastHelper-windows-amd64.zip | ForEach-Object { $_.Hash.ToLower() } | Out-File -Encoding ascii ..\bin\BiliCastHelper-windows-amd64.zip.sha256
 
       - uses: actions/upload-artifact@v7
         with:
@@ -82,6 +86,8 @@ jobs:
           path: |
             bin/BiliCastHelper-windows-amd64.exe
             bin/BiliCastHelper-windows-amd64.exe.sha256
+            bin/BiliCastHelper-windows-amd64.zip
+            bin/BiliCastHelper-windows-amd64.zip.sha256
 
   build-linux:
     name: Build Linux amd64
@@ -139,6 +145,11 @@ jobs:
           cp "$BIN" ../bin/BiliCastHelper-linux-amd64
           chmod +x ../bin/BiliCastHelper-linux-amd64
           sha256sum ../bin/BiliCastHelper-linux-amd64 | awk '{print $1}' > ../bin/BiliCastHelper-linux-amd64.sha256
+          mkdir -p ../bin/linux-amd64
+          cp ../bin/BiliCastHelper-linux-amd64 ../bin/linux-amd64/BiliCastHelper
+          chmod +x ../bin/linux-amd64/BiliCastHelper
+          (cd ../bin && tar -czf BiliCastHelper-linux-amd64.tar.gz linux-amd64)
+          sha256sum ../bin/BiliCastHelper-linux-amd64.tar.gz | awk '{print $1}' > ../bin/BiliCastHelper-linux-amd64.tar.gz.sha256
 
       - uses: actions/upload-artifact@v7
         with:
@@ -146,6 +157,8 @@ jobs:
           path: |
             bin/BiliCastHelper-linux-amd64
             bin/BiliCastHelper-linux-amd64.sha256
+            bin/BiliCastHelper-linux-amd64.tar.gz
+            bin/BiliCastHelper-linux-amd64.tar.gz.sha256
 
   create-release-assets:
     name: Attach Wails artifacts to release
@@ -171,20 +184,24 @@ jobs:
             "version": "${TAG}",
             "release_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
             "files": {
-              "windows-amd64": { "name": "BiliCastHelper-windows-amd64.exe", "url": "${BASE_URL}/BiliCastHelper-windows-amd64.exe" },
-              "linux-amd64": { "name": "BiliCastHelper-linux-amd64", "url": "${BASE_URL}/BiliCastHelper-linux-amd64" }
+              "windows-amd64": { "name": "BiliCastHelper-windows-amd64.zip", "url": "${BASE_URL}/BiliCastHelper-windows-amd64.zip" },
+              "linux-amd64": { "name": "BiliCastHelper-linux-amd64.tar.gz", "url": "${BASE_URL}/BiliCastHelper-linux-amd64.tar.gz" }
             }
           }
           JSON
           ls -lh release-assets
 
-      - name: Remove legacy packaged assets
+      - name: Remove existing Wails assets
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ inputs.tag || github.ref_name }}"
+          gh release delete-asset "$TAG" BiliCastHelper-windows-amd64.exe --repo "${{ github.repository }}" -y || true
+          gh release delete-asset "$TAG" BiliCastHelper-windows-amd64.exe.sha256 --repo "${{ github.repository }}" -y || true
           gh release delete-asset "$TAG" BiliCastHelper-windows-amd64.zip --repo "${{ github.repository }}" -y || true
           gh release delete-asset "$TAG" BiliCastHelper-windows-amd64.zip.sha256 --repo "${{ github.repository }}" -y || true
+          gh release delete-asset "$TAG" BiliCastHelper-linux-amd64 --repo "${{ github.repository }}" -y || true
+          gh release delete-asset "$TAG" BiliCastHelper-linux-amd64.sha256 --repo "${{ github.repository }}" -y || true
           gh release delete-asset "$TAG" BiliCastHelper-linux-amd64.tar.gz --repo "${{ github.repository }}" -y || true
           gh release delete-asset "$TAG" BiliCastHelper-linux-amd64.tar.gz.sha256 --repo "${{ github.repository }}" -y || true
 
@@ -200,7 +217,9 @@ jobs:
 
             ## Wails desktop builds
 
-            - Windows: `BiliCastHelper-windows-amd64.exe`
-            - Linux: `BiliCastHelper-linux-amd64`
-            - Desktop binaries are single-file downloads with embedded ffmpeg, extracted to the local app cache at runtime.
+            - Windows green package: `BiliCastHelper-windows-amd64.zip`
+            - Windows single executable: `BiliCastHelper-windows-amd64.exe`
+            - Linux portable archive: `BiliCastHelper-linux-amd64.tar.gz`
+            - Linux single executable: `BiliCastHelper-linux-amd64`
+            - Desktop binaries embed ffmpeg, extracted to the local app cache at runtime.
             - Every artifact includes a `.sha256` checksum file.

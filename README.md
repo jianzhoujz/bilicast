@@ -56,10 +56,12 @@ brew uninstall --cask bilicast
 
 从 [GitHub Releases](https://github.com/jianzhoujz/bilicast/releases) 下载对应桌面端产物：
 
-- Windows：`BiliCastHelper-windows-amd64.exe`，下载后直接运行。ffmpeg 已编进该 exe。
-- Linux：`BiliCastHelper-linux-amd64`，下载后执行 `chmod +x BiliCastHelper-linux-amd64 && ./BiliCastHelper-linux-amd64`。ffmpeg 已编进该二进制。
+- Windows 绿色版：`BiliCastHelper-windows-amd64.zip`，解压后运行 `BiliCastHelper.exe`。
+- Windows 单文件：`BiliCastHelper-windows-amd64.exe`，下载后直接运行。
+- Linux 绿色包：`BiliCastHelper-linux-amd64.tar.gz`，解压后运行 `linux-amd64/BiliCastHelper`。
+- Linux 单文件：`BiliCastHelper-linux-amd64`，下载后执行 `chmod +x BiliCastHelper-linux-amd64 && ./BiliCastHelper-linux-amd64`。
 
-Wails2 Windows / Linux 发布产物都是单文件主程序；首次使用「极清」时，程序会把内置 ffmpeg 释放到本机应用缓存目录后再调用。
+Wails2 Windows / Linux 发布产物都已经把 ffmpeg 编进主程序；首次使用「极清」时，程序会把内置 ffmpeg 释放到本机应用缓存目录后再调用。
 
 Wails2 桌面端启动本地 HTTP API 服务和流代理，控制页面统一走 `http://127.0.0.1:18787/console`。控制台使用专属 API 前缀 `/api/bilicast` 并自动读取本机 token；托盘/原生菜单负责显示、隐藏主窗口与退出应用，首页跳转到这个控制台。
 

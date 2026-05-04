@@ -67,10 +67,12 @@ DMG and drag `BiliCast.app` onto the `Applications` shortcut.
 
 Download the desktop artifact for your platform from [GitHub Releases](https://github.com/jianzhoujz/bilicast/releases):
 
-- Windows: `BiliCastHelper-windows-amd64.exe`; download it and run it directly. ffmpeg is embedded in the exe.
-- Linux: `BiliCastHelper-linux-amd64`; download it, then run `chmod +x BiliCastHelper-linux-amd64 && ./BiliCastHelper-linux-amd64`. ffmpeg is embedded in the binary.
+- Windows green package: `BiliCastHelper-windows-amd64.zip`; extract it and run `BiliCastHelper.exe`.
+- Windows single file: `BiliCastHelper-windows-amd64.exe`; download it and run it directly.
+- Linux portable archive: `BiliCastHelper-linux-amd64.tar.gz`; extract it and run `linux-amd64/BiliCastHelper`.
+- Linux single file: `BiliCastHelper-linux-amd64`; download it, then run `chmod +x BiliCastHelper-linux-amd64 && ./BiliCastHelper-linux-amd64`.
 
-Wails2 Windows / Linux release artifacts are single-file main programs. On first Ultra-mode use, the app extracts the embedded ffmpeg binary to the local app cache and runs it from there.
+Wails2 Windows / Linux release artifacts embed ffmpeg in the main program. On first Ultra-mode use, the app extracts the embedded ffmpeg binary to the local app cache and runs it from there.
 
 The Wails2 desktop app starts the local HTTP API service and stream proxy, then opens `http://127.0.0.1:18787/console` for control. The console uses the dedicated API prefix `/api/bilicast` with local token bootstrap. The tray/native menu shows or hides the main window and can quit the app; the Wails home page redirects to the console.
 
