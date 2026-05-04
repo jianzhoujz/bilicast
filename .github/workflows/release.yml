@@ -24,6 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       resolved_version: ${{ steps.resolve-version.outputs.version }}
+      tag_exists: ${{ steps.resolve-version.outputs.tag_exists }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -36,10 +37,10 @@ jobs:
           set -euo pipefail
           INPUT_VERSION="${{ github.event_name == 'workflow_dispatch' && inputs.version || '' }}"
           INPUT_VERSION="${INPUT_VERSION//[[:space:]]/}"
-          TAG_ALREADY_EXISTS=false
+          TAG_EXISTS=false
           if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
             VERSION="${GITHUB_REF_NAME}"
-            TAG_ALREADY_EXISTS=true
+            TAG_EXISTS=true
           elif [[ -n "$INPUT_VERSION" ]]; then
             VERSION="$INPUT_VERSION"
           else
@@ -57,15 +58,20 @@ jobs:
             echo "Invalid version: $VERSION" >&2
             exit 1
           fi
-          if [[ "$TAG_ALREADY_EXISTS" == "false" ]] && git rev-parse "$VERSION" >/dev/null 2>&1; then
+          if git rev-parse --verify --quiet "refs/tags/$VERSION" >/dev/null; then
+            TAG_EXISTS=true
+          fi
+          if [[ "$TAG_EXISTS" == "true" && -z "$INPUT_VERSION" && "${GITHUB_REF_TYPE:-}" != "tag" ]]; then
             echo "Tag already exists: $VERSION" >&2
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag_exists=$TAG_EXISTS" >> "$GITHUB_OUTPUT"
           echo "Resolved version: $VERSION" >> "$GITHUB_STEP_SUMMARY"
+          echo "Tag exists: $TAG_EXISTS" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Sync native app version
-        if: github.ref_type != 'tag'
+        if: github.ref_type != 'tag' && steps.resolve-version.outputs.tag_exists != 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -90,7 +96,7 @@ jobs:
           fi
 
       - name: Create and push tag
-        if: github.ref_type != 'tag'
+        if: github.ref_type != 'tag' && steps.resolve-version.outputs.tag_exists != 'true'
         run: |
           VERSION="${{ steps.resolve-version.outputs.version }}"
           git tag "$VERSION"
