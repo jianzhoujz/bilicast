@@ -65,8 +65,10 @@ go run ./cmd/bilicastd
 
 Release archives are published from the `Wails Build` workflow on version tags:
 
-- Windows: `BiliCastHelper-windows-amd64.zip`, containing `BiliCastHelper.exe` with embedded ffmpeg.
-- Linux: `BiliCastHelper-linux-amd64.tar.gz`, containing `linux-amd64/BiliCastHelper` with embedded ffmpeg.
+- Windows: `BiliCastHelper-windows-amd64.zip`, containing only `BiliCastHelper.exe` with embedded ffmpeg.
+- Linux: `BiliCastHelper-linux-amd64.tar.gz`, containing only `linux-amd64/BiliCastHelper` with embedded ffmpeg.
+
+The release workflow downloads a real platform ffmpeg before `wails build` and overwrites the tiny placeholder files in `pkg/backend/ffmpeg_assets/`, so the final app binary carries the ffmpeg bytes. The placeholders stay small in git; local source builds fall back to system ffmpeg unless you replace the platform asset with a real binary before building.
 
 Install Wails2, then build from this directory when developing locally:
 
@@ -75,7 +77,7 @@ go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
 wails build -tags wails
 ```
 
-The desktop app starts the new HTTP API service and stream proxy, then redirects to the HTTP console for status, token, preferences, devices, and casting controls. For release builds, the backend extracts embedded ffmpeg to the local app cache first, then checks sidecar paths and system PATH as fallbacks.
+The desktop app starts the new HTTP API service and stream proxy, then redirects to the HTTP console for status, token, preferences, devices, and casting controls. For release builds, the backend extracts embedded ffmpeg to the local app cache first, then checks system ffmpeg paths as fallbacks.
 
 Desktop shell behavior:
 

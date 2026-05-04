@@ -59,6 +59,8 @@ brew uninstall --cask bilicast
 - Windows：`BiliCastHelper-windows-amd64.zip`，解压后运行 `BiliCastHelper.exe`。ffmpeg 已编进该 exe。
 - Linux：`BiliCastHelper-linux-amd64.tar.gz`，解压后运行 `linux-amd64/BiliCastHelper`。ffmpeg 已编进该二进制。
 
+Wails2 发布包只包含主程序文件；首次使用「极清」时，程序会把内置 ffmpeg 释放到本机应用缓存目录后再调用。用户直接解压运行主程序即可。
+
 Wails2 桌面端启动本地 HTTP API 服务和流代理，控制页面统一走 `http://127.0.0.1:18787/console`。控制台使用专属 API 前缀 `/api/bilicast` 并自动读取本机 token；托盘/原生菜单负责显示、隐藏主窗口与退出应用，首页跳转到这个控制台。
 
 ### Docker / Go daemon
@@ -74,6 +76,9 @@ docker compose up --build
 # 后台控制页：http://127.0.0.1:18787/console
 
 # 从源码构建 Wails2 桌面端
+# 本地源码构建默认使用占位 ffmpeg；要做内置 ffmpeg 发布包，先把真实 ffmpeg 覆盖到：
+# - Linux:   crossplatform/pkg/backend/ffmpeg_assets/ffmpeg_linux_amd64
+# - Windows: crossplatform/pkg/backend/ffmpeg_assets/ffmpeg_windows_amd64.exe
 go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
 wails build -tags wails
 ```

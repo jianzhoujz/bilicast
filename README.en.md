@@ -70,6 +70,8 @@ Download the desktop artifact for your platform from [GitHub Releases](https://g
 - Windows: `BiliCastHelper-windows-amd64.zip`; extract it and run `BiliCastHelper.exe`. ffmpeg is embedded in the exe.
 - Linux: `BiliCastHelper-linux-amd64.tar.gz`; extract it and run `linux-amd64/BiliCastHelper`. ffmpeg is embedded in the binary.
 
+Wails2 release archives contain only the main program file. On first Ultra-mode use, the app extracts the embedded ffmpeg binary to the local app cache and runs it from there. Extract the archive and run the main program directly.
+
 The Wails2 desktop app starts the local HTTP API service and stream proxy, then opens `http://127.0.0.1:18787/console` for control. The console uses the dedicated API prefix `/api/bilicast` with local token bootstrap. The tray/native menu shows or hides the main window and can quit the app; the Wails home page redirects to the console.
 
 ### Docker / Go daemon
@@ -85,6 +87,10 @@ docker compose up --build
 # Console: http://127.0.0.1:18787/console
 
 # Build Wails2 desktop app from source
+# Local source builds use placeholder ffmpeg assets by default. For an embedded-ffmpeg release build,
+# overwrite these files with real ffmpeg binaries before running `wails build`:
+# - Linux:   crossplatform/pkg/backend/ffmpeg_assets/ffmpeg_linux_amd64
+# - Windows: crossplatform/pkg/backend/ffmpeg_assets/ffmpeg_windows_amd64.exe
 go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
 wails build -tags wails
 ```
