@@ -189,8 +189,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ inputs.tag || github.ref_name }}"
-          gh release delete-asset "$TAG" BiliCastHelper-windows-amd64.exe -y || true
-          gh release delete-asset "$TAG" BiliCastHelper-windows-amd64.exe.sha256 -y || true
+          gh release delete-asset "$TAG" BiliCastHelper-windows-amd64.exe --repo "${{ github.repository }}" -y || true
+          gh release delete-asset "$TAG" BiliCastHelper-windows-amd64.exe.sha256 --repo "${{ github.repository }}" -y || true
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v3
