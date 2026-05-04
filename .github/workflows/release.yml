@@ -112,6 +112,7 @@ jobs:
           prerelease: false
 
   docker:
+    if: github.event_name == 'workflow_dispatch'
     name: Build Docker image
     needs: release
     uses: ./.github/workflows/ci-docker-build.yml
@@ -122,6 +123,7 @@ jobs:
       packages: write
 
   wails:
+    if: github.event_name == 'workflow_dispatch'
     name: Build Wails desktop artifacts
     needs: release
     uses: ./.github/workflows/ci-wails-build.yml
@@ -131,6 +133,7 @@ jobs:
       contents: write
 
   native-macos:
+    if: github.event_name == 'workflow_dispatch'
     name: Build native macOS app
     needs: release
     uses: ./.github/workflows/macos-native-app-build.yml
