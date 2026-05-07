@@ -63,12 +63,13 @@ Grab `BiliCast-VERSION.dmg` from
 [GitHub Releases](https://github.com/jianzhoujz/bilicast/releases). Open the
 DMG and drag `BiliCast.app` onto the `Applications` shortcut.
 
-### Windows / Linux Wails2 desktop
+### Wails2 desktop (Windows / Linux / macOS)
 
 Download the desktop artifact for your platform from [GitHub Releases](https://github.com/jianzhoujz/bilicast/releases):
 
-- Windows green package: `BiliCastHelper-windows-amd64.zip`; extract it and run `BiliCastHelper.exe`. The same directory already includes `ffmpeg.exe`.
-- Linux green package: `BiliCastHelper-linux-amd64.zip`; extract it and run `linux-amd64/BiliCastHelper`. The same directory already includes `ffmpeg`.
+- Windows green package: `BiliCast-windows-amd64.zip`; extract it and run `BiliCast.exe`. The same directory already includes `ffmpeg.exe`.
+- Linux green package: `BiliCast-linux-amd64.zip`; extract it and run `linux-amd64/BiliCast`. The same directory already includes `ffmpeg`.
+- macOS Wails build: `BiliCast-macOS-universal-wails.dmg`; mount and drag `BiliCast-wails.app` into `Applications/`. Coexists with the native `BiliCast.app`; both share the backend config at `~/.config/BiliCast/config.json`.
 
 Wails2 Windows / Linux release artifacts use portable archives. The app prefers the ffmpeg sidecar in the same directory as the main program.
 

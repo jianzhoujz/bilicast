@@ -74,17 +74,17 @@ jobs:
             exit 1
           }
           New-Item -ItemType Directory -Force -Path ..\bin\windows-amd64 | Out-Null
-          Copy-Item $exe.FullName ..\bin\windows-amd64\BiliCastHelper.exe
+          Copy-Item $exe.FullName ..\bin\windows-amd64\BiliCast.exe
           Copy-Item ..\bin\ffmpeg.exe ..\bin\windows-amd64\ffmpeg.exe
-          Compress-Archive -Force -Path ..\bin\windows-amd64\* -DestinationPath ..\bin\BiliCastHelper-windows-amd64.zip
-          Get-FileHash -Algorithm SHA256 ..\bin\BiliCastHelper-windows-amd64.zip | ForEach-Object { $_.Hash.ToLower() } | Out-File -Encoding ascii ..\bin\BiliCastHelper-windows-amd64.zip.sha256
+          Compress-Archive -Force -Path ..\bin\windows-amd64\* -DestinationPath ..\bin\BiliCast-windows-amd64.zip
+          Get-FileHash -Algorithm SHA256 ..\bin\BiliCast-windows-amd64.zip | ForEach-Object { $_.Hash.ToLower() } | Out-File -Encoding ascii ..\bin\BiliCast-windows-amd64.zip.sha256
 
       - uses: actions/upload-artifact@v7
         with:
           name: wails-windows-amd64
           path: |
-            bin/BiliCastHelper-windows-amd64.zip
-            bin/BiliCastHelper-windows-amd64.zip.sha256
+            bin/BiliCast-windows-amd64.zip
+            bin/BiliCast-windows-amd64.zip.sha256
 
   build-linux:
     name: Build Linux amd64
@@ -140,24 +140,105 @@ jobs:
             exit 1
           fi
           mkdir -p ../bin/linux-amd64
-          cp "$BIN" ../bin/linux-amd64/BiliCastHelper
+          cp "$BIN" ../bin/linux-amd64/BiliCast
           cp ../bin/ffmpeg ../bin/linux-amd64/ffmpeg
-          chmod +x ../bin/linux-amd64/BiliCastHelper ../bin/linux-amd64/ffmpeg
-          (cd ../bin && zip -r BiliCastHelper-linux-amd64.zip linux-amd64)
-          python3 -c "import zipfile; z=zipfile.ZipFile('../bin/BiliCastHelper-linux-amd64.zip'); names=set(z.namelist()); assert 'linux-amd64/BiliCastHelper' in names; assert 'linux-amd64/ffmpeg' in names"
-          sha256sum ../bin/BiliCastHelper-linux-amd64.zip | awk '{print $1}' > ../bin/BiliCastHelper-linux-amd64.zip.sha256
+          chmod +x ../bin/linux-amd64/BiliCast ../bin/linux-amd64/ffmpeg
+          (cd ../bin && zip -r BiliCast-linux-amd64.zip linux-amd64)
+          python3 -c "import zipfile; z=zipfile.ZipFile('../bin/BiliCast-linux-amd64.zip'); names=set(z.namelist()); assert 'linux-amd64/BiliCast' in names; assert 'linux-amd64/ffmpeg' in names"
+          sha256sum ../bin/BiliCast-linux-amd64.zip | awk '{print $1}' > ../bin/BiliCast-linux-amd64.zip.sha256
 
       - uses: actions/upload-artifact@v7
         with:
           name: wails-linux-amd64
           path: |
-            bin/BiliCastHelper-linux-amd64.zip
-            bin/BiliCastHelper-linux-amd64.zip.sha256
+            bin/BiliCast-linux-amd64.zip
+            bin/BiliCast-linux-amd64.zip.sha256
+
+  build-macos:
+    name: Build macOS universal
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: crossplatform
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: crossplatform/go.mod
+          cache-dependency-path: crossplatform/go.sum
+
+      - name: Fetch universal ffmpeg
+        run: |
+          set -euo pipefail
+          mkdir -p ../bin
+          ../macos/tools/fetch-ffmpeg.sh ../bin/ffmpeg
+          test -x ../bin/ffmpeg
+          test $(wc -c < ../bin/ffmpeg) -gt 1000000
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.10.2
+
+      - name: Build Wails app
+        run: wails build -tags wails -platform darwin/universal -clean
+
+      - name: Rename app, patch Info.plist, bundle ffmpeg, ad-hoc sign
+        run: |
+          set -euo pipefail
+          SRC=$(find build/bin -maxdepth 1 -type d -name "*.app" | head -n 1)
+          if [ -z "$SRC" ]; then
+            echo "macOS .app bundle not found" >&2
+            find build/bin -maxdepth 2 -print
+            exit 1
+          fi
+          APP="build/bin/BiliCast-wails.app"
+          if [ "$SRC" != "$APP" ]; then
+            mv "$SRC" "$APP"
+          fi
+          # Differentiate from native BiliCast.app: distinct bundle id + display name.
+          PB=/usr/libexec/PlistBuddy
+          PLIST="$APP/Contents/Info.plist"
+          $PB -c "Set :CFBundleIdentifier com.wails.bilicast-wails" "$PLIST"
+          $PB -c "Set :CFBundleName BiliCast Wails" "$PLIST"
+          $PB -c "Add :CFBundleDisplayName string BiliCast (Wails)" "$PLIST" 2>/dev/null \
+            || $PB -c "Set :CFBundleDisplayName BiliCast (Wails)" "$PLIST"
+          mkdir -p "$APP/Contents/Resources"
+          # Replace Wails' generated icon with the native app's high-quality icns
+          # (Wails' PNG → icns conversion adds black padding at small sizes).
+          cp ../macos/Resources/AppIcon.icns "$APP/Contents/Resources/iconfile.icns"
+          cp ../bin/ffmpeg "$APP/Contents/Resources/ffmpeg"
+          chmod +x "$APP/Contents/Resources/ffmpeg"
+          codesign --force --deep --sign - "$APP"
+
+      - name: Build macOS DMG
+        run: |
+          set -euo pipefail
+          mkdir -p ../bin
+          rm -rf build/dmg-stage
+          mkdir -p build/dmg-stage
+          cp -R build/bin/BiliCast-wails.app build/dmg-stage/
+          hdiutil create \
+            -volname "BiliCast (Wails)" \
+            -srcfolder build/dmg-stage \
+            -ov \
+            -format UDZO \
+            ../bin/BiliCast-macOS-universal-wails.dmg
+          shasum -a 256 ../bin/BiliCast-macOS-universal-wails.dmg | awk '{print $1}' > ../bin/BiliCast-macOS-universal-wails.dmg.sha256
+          ls -lh ../bin
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: wails-macos-universal
+          path: |
+            bin/BiliCast-macOS-universal-wails.dmg
+            bin/BiliCast-macOS-universal-wails.dmg.sha256
 
   create-release-assets:
     name: Attach Wails artifacts to release
     if: startsWith(github.ref, 'refs/tags/') || inputs.tag != ''
-    needs: [build-windows, build-linux]
+    needs: [build-windows, build-linux, build-macos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v8
@@ -178,8 +259,9 @@ jobs:
             "version": "${TAG}",
             "release_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
             "files": {
-              "windows-amd64": { "name": "BiliCastHelper-windows-amd64.zip", "url": "${BASE_URL}/BiliCastHelper-windows-amd64.zip" },
-              "linux-amd64": { "name": "BiliCastHelper-linux-amd64.zip", "url": "${BASE_URL}/BiliCastHelper-linux-amd64.zip" }
+              "windows-amd64": { "name": "BiliCast-windows-amd64.zip", "url": "${BASE_URL}/BiliCast-windows-amd64.zip" },
+              "linux-amd64": { "name": "BiliCast-linux-amd64.zip", "url": "${BASE_URL}/BiliCast-linux-amd64.zip" },
+              "macos-universal-wails": { "name": "BiliCast-macOS-universal-wails.dmg", "url": "${BASE_URL}/BiliCast-macOS-universal-wails.dmg" }
             }
           }
           JSON
@@ -194,12 +276,22 @@ jobs:
           gh release delete-asset "$TAG" BiliCastHelper-windows-amd64.exe.sha256 --repo "${{ github.repository }}" -y || true
           gh release delete-asset "$TAG" BiliCastHelper-windows-amd64.zip --repo "${{ github.repository }}" -y || true
           gh release delete-asset "$TAG" BiliCastHelper-windows-amd64.zip.sha256 --repo "${{ github.repository }}" -y || true
+          gh release delete-asset "$TAG" BiliCast-windows-amd64.zip --repo "${{ github.repository }}" -y || true
+          gh release delete-asset "$TAG" BiliCast-windows-amd64.zip.sha256 --repo "${{ github.repository }}" -y || true
           gh release delete-asset "$TAG" BiliCastHelper-linux-amd64 --repo "${{ github.repository }}" -y || true
           gh release delete-asset "$TAG" BiliCastHelper-linux-amd64.sha256 --repo "${{ github.repository }}" -y || true
           gh release delete-asset "$TAG" BiliCastHelper-linux-amd64.tar.gz --repo "${{ github.repository }}" -y || true
           gh release delete-asset "$TAG" BiliCastHelper-linux-amd64.tar.gz.sha256 --repo "${{ github.repository }}" -y || true
           gh release delete-asset "$TAG" BiliCastHelper-linux-amd64.zip --repo "${{ github.repository }}" -y || true
           gh release delete-asset "$TAG" BiliCastHelper-linux-amd64.zip.sha256 --repo "${{ github.repository }}" -y || true
+          gh release delete-asset "$TAG" BiliCast-linux-amd64.zip --repo "${{ github.repository }}" -y || true
+          gh release delete-asset "$TAG" BiliCast-linux-amd64.zip.sha256 --repo "${{ github.repository }}" -y || true
+          gh release delete-asset "$TAG" BiliCastHelper-macOS-universal.zip --repo "${{ github.repository }}" -y || true
+          gh release delete-asset "$TAG" BiliCastHelper-macOS-universal.zip.sha256 --repo "${{ github.repository }}" -y || true
+          gh release delete-asset "$TAG" BiliCastHelper-macOS-universal-wails.zip --repo "${{ github.repository }}" -y || true
+          gh release delete-asset "$TAG" BiliCastHelper-macOS-universal-wails.zip.sha256 --repo "${{ github.repository }}" -y || true
+          gh release delete-asset "$TAG" BiliCast-macOS-universal-wails.dmg --repo "${{ github.repository }}" -y || true
+          gh release delete-asset "$TAG" BiliCast-macOS-universal-wails.dmg.sha256 --repo "${{ github.repository }}" -y || true
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v3
@@ -213,7 +305,7 @@ jobs:
 
             ## Wails desktop builds
 
-            - Windows green package: `BiliCastHelper-windows-amd64.zip`
-            - Linux green package: `BiliCastHelper-linux-amd64.zip`
-            - Desktop archives include an ffmpeg sidecar binary.
+            - Windows green package: `BiliCast-windows-amd64.zip` (contains `BiliCast.exe` + ffmpeg sidecar)
+            - Linux green package: `BiliCast-linux-amd64.zip` (contains `BiliCast` + ffmpeg sidecar)
+            - macOS Wails DMG (coexists with native `BiliCast.app`): `BiliCast-macOS-universal-wails.dmg` (contains universal `BiliCast-wails.app` with embedded ffmpeg)
             - Every artifact includes a `.sha256` checksum file.

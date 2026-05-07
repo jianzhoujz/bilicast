@@ -1,10 +1,10 @@
-# BiliCastHelper Cross-Platform Backend
+# BiliCast Cross-Platform Backend
 
 This directory contains the Wails2-based cross-platform backend track.
 
 ## Runtime targets
 
-- **Wails desktop client**: Windows / Linux desktop shell, built with Wails2. Release archives include an ffmpeg sidecar binary for DASH remux mode.
+- **Wails desktop client**: Windows / Linux / macOS desktop shell, built with Wails2. Release archives include an ffmpeg sidecar binary for DASH remux mode.
 - **Native desktop entry**: Windows / Linux use a tray/native-menu action surface for showing the main window, hiding the main window, and quitting the app.
 - **Daemon / server mode**: `bilicastd`, a plain Go HTTP backend for local development and headless hosts. Install `ffmpeg` on the host if you use DASH remux mode.
 - **Docker mode**: containerized `bilicastd` with ffmpeg included.
@@ -65,8 +65,9 @@ go run ./cmd/bilicastd
 
 Release artifacts are published from the `Wails Build` workflow on version tags:
 
-- Windows green package: `BiliCastHelper-windows-amd64.zip`, containing `BiliCastHelper.exe` and `ffmpeg.exe`.
-- Linux green package: `BiliCastHelper-linux-amd64.zip`, containing `linux-amd64/BiliCastHelper` and `linux-amd64/ffmpeg`.
+- Windows green package: `BiliCast-windows-amd64.zip`, containing `BiliCast.exe` and `ffmpeg.exe`.
+- Linux green package: `BiliCast-linux-amd64.zip`, containing `linux-amd64/BiliCast` and `linux-amd64/ffmpeg`.
+- macOS Wails DMG: `BiliCast-macOS-universal-wails.dmg`, containing `BiliCast-wails.app` (universal, with embedded ffmpeg sidecar). Coexists with the native `BiliCast.app`.
 
 The release workflow downloads a real platform ffmpeg and packages it next to the Wails desktop binary. The app prefers that same-directory ffmpeg sidecar before checking system paths.
 

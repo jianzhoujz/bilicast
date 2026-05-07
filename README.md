@@ -52,12 +52,13 @@ brew uninstall --cask bilicast
 
 从 [GitHub Releases](https://github.com/jianzhoujz/bilicast/releases) 下载 `BiliCast-VERSION.dmg`，打开后将 `BiliCast.app` 拖到 `Applications` 快捷方式上。
 
-### Windows / Linux Wails2 桌面端
+### Wails2 桌面端（Windows / Linux / macOS）
 
 从 [GitHub Releases](https://github.com/jianzhoujz/bilicast/releases) 下载对应桌面端产物：
 
-- Windows 绿色版：`BiliCastHelper-windows-amd64.zip`，解压后运行 `BiliCastHelper.exe`，同目录已带 `ffmpeg.exe`。
-- Linux 绿色版：`BiliCastHelper-linux-amd64.zip`，解压后运行 `linux-amd64/BiliCastHelper`，同目录已带 `ffmpeg`。
+- Windows 绿色版：`BiliCast-windows-amd64.zip`，解压后运行 `BiliCast.exe`，同目录已带 `ffmpeg.exe`。
+- Linux 绿色版：`BiliCast-linux-amd64.zip`，解压后运行 `linux-amd64/BiliCast`，同目录已带 `ffmpeg`。
+- macOS Wails 版：`BiliCast-macOS-universal-wails.dmg`，挂载后把 `BiliCast-wails.app` 拖到 `Applications/`。可与原生版 `BiliCast.app` 同时安装（互不干扰，配置共享 `~/.config/BiliCast/config.json`）。
 
 Wails2 Windows / Linux 发布产物采用绿色压缩包方案；主程序启动时优先调用同目录的 ffmpeg sidecar。
 
