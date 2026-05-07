@@ -11,6 +11,7 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/mac"
 )
 
 //go:embed frontend/dist
@@ -27,13 +28,23 @@ func main() {
 	svc.StartProxyServer(ctx)
 	app := NewApp()
 	err = wails.Run(&options.App{
-		Title:             "BiliCastHelper",
-		Width:             980,
-		Height:            680,
+		Title:             "BiliCast",
+		Width:             400,
+		Height:            720,
+		MinWidth:          360,
+		MinHeight:         480,
 		HideWindowOnClose: true,
 		Menu:              BuildShellMenu(app),
 		AssetServer: &assetserver.Options{
 			Assets: assets,
+		},
+		Mac: &mac.Options{
+			TitleBar:   mac.TitleBarDefault(),
+			Appearance: mac.DefaultAppearance,
+			About: &mac.AboutInfo{
+				Title:   "BiliCast (Wails)",
+				Message: "Cross-platform Wails build of BiliCast.",
+			},
 		},
 		OnStartup: app.startup,
 	})

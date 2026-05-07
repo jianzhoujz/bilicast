@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>BiliCastHelper</title>
+  <title>BiliCast</title>
   <style>
     :root { color-scheme: light dark; }
     body {
@@ -13,45 +13,36 @@
       place-items: center;
       background: #f6f7f8;
       color: #18191c;
-      font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+      font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
     }
     main {
-      width: min(520px, calc(100vw - 32px));
-      background: #fff;
-      border: 1px solid #e3e5e7;
-      border-radius: 16px;
-      padding: 24px;
-      box-shadow: 0 12px 36px rgba(0,0,0,.08);
+      width: min(360px, calc(100vw - 28px));
       text-align: center;
+      padding: 14px;
     }
-    h1 { margin: 0 0 8px; font-size: 22px; }
-    p { margin: 8px 0; }
-    a, button {
+    h1 { margin: 0 0 6px; font-size: 17px; font-weight: 650; }
+    p { margin: 4px 0; }
+    a {
       display: inline-block;
-      margin-top: 14px;
-      border: 0;
-      border-radius: 10px;
+      margin-top: 10px;
+      border-radius: 6px;
       background: #fb7299;
       color: #fff;
-      padding: 9px 14px;
-      cursor: pointer;
+      padding: 6px 12px;
       text-decoration: none;
-      font: inherit;
-      font-weight: 650;
+      font-weight: 600;
     }
-    .muted { color: #6b7280; }
+    .muted { color: #6b7280; font-size: 12px; }
     @media (prefers-color-scheme: dark) {
-      body { background: #111318; color: #f1f2f3; }
-      main { background: #181b22; border-color: #303642; }
+      body { background: #1c1d22; color: #f1f2f3; }
       .muted { color: #a5adba; }
     }
   </style>
 </head>
 <body>
   <main>
-    <h1>BiliCastHelper</h1>
-    <p>正在打开后台控制台…</p>
-    <p class="muted">所有控制页面由本地 HTTP 服务提供。</p>
+    <h1>BiliCast</h1>
+    <p class="muted">正在打开控制台…</p>
     <a id="console-link" href="http://127.0.0.1:18787/console">打开控制台</a>
   </main>
   <script>
@@ -59,7 +50,7 @@
     document.getElementById('console-link').href = consoleURL;
     setTimeout(() => {
       window.location.replace(consoleURL);
-    }, 250);
+    }, 200);
   </script>
 </body>
 </html>
