@@ -93,3 +93,4 @@ playground.xcworkspace
 ### Cross-platform backend
 crossplatform/bilicastd
 crossplatform/build/
+crossplatform/frontend/wailsjs/

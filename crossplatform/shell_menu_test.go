@@ -32,8 +32,8 @@ func TestBuildShellMenu(t *testing.T) {
 			if len(item.SubMenu.Items) != 4 {
 				t.Fatalf("BiliCast tray menu items = %d, want 4", len(item.SubMenu.Items))
 			}
-			if item.SubMenu.Items[3].Label != "Quit BiliCastHelper" {
-				t.Fatalf("last BiliCast tray menu item = %q, want Quit BiliCastHelper", item.SubMenu.Items[3].Label)
+			if item.SubMenu.Items[3].Label != "Quit BiliCast" {
+				t.Fatalf("last BiliCast tray menu item = %q, want Quit BiliCast", item.SubMenu.Items[3].Label)
 			}
 		}
 	}

@@ -26,7 +26,7 @@ func DefaultConfigPath() string {
 			base = filepath.Join(home, ".config")
 		}
 	}
-	return filepath.Join(base, "BiliCastHelper", "config.json")
+	return filepath.Join(base, "BiliCast", "config.json")
 }
 
 func LoadOrCreateConfig(path string) (Config, error) {

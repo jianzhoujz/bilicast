@@ -1,7 +1,7 @@
 {
   "$schema": "https://wails.io/schemas/config.v2.json",
-  "name": "BiliCastHelper",
-  "outputfilename": "BiliCastHelper",
+  "name": "BiliCast",
+  "outputfilename": "BiliCast",
   "frontend:install": "echo frontend already vendored",
   "frontend:build": "echo using frontend/dist",
   "frontend:dev:watcher": "echo using frontend/dist",

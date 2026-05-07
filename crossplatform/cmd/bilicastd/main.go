@@ -32,14 +32,14 @@ func main() {
 	proxy := &http.Server{Addr: opts.ProxyAddr, Handler: svc.ProxyHandler()}
 
 	go func() {
-		fmt.Printf("BiliCastHelper control API listening on http://%s\n", opts.ControlAddr)
+		fmt.Printf("BiliCast control API listening on http://%s\n", opts.ControlAddr)
 		fmt.Printf("Pairing token: %s\n", svc.Token())
 		if err := control.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("control server: %v", err)
 		}
 	}()
 	go func() {
-		fmt.Printf("BiliCastHelper stream proxy listening on http://%s\n", opts.ProxyAddr)
+		fmt.Printf("BiliCast stream proxy listening on http://%s\n", opts.ProxyAddr)
 		if err := proxy.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("proxy server: %v", err)
 		}

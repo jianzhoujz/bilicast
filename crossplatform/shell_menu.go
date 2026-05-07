@@ -36,10 +36,10 @@ func BuildShellMenu(app *App) *menu.Menu {
 	root := menu.NewMenu()
 
 	bilicast := root.AddSubmenu("BiliCast")
-	bilicast.AddText("Show BiliCastHelper", nil, func(_ *menu.CallbackData) { app.ShowWindow() })
-	bilicast.AddText("Hide BiliCastHelper", nil, func(_ *menu.CallbackData) { app.HideWindow() })
+	bilicast.AddText("Show BiliCast", nil, func(_ *menu.CallbackData) { app.ShowWindow() })
+	bilicast.AddText("Hide BiliCast", nil, func(_ *menu.CallbackData) { app.HideWindow() })
 	bilicast.AddSeparator()
-	bilicast.AddText("Quit BiliCastHelper", nil, func(_ *menu.CallbackData) { app.QuitApp() })
+	bilicast.AddText("Quit BiliCast", nil, func(_ *menu.CallbackData) { app.QuitApp() })
 
 	return root
 }

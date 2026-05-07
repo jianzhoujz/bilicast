@@ -3,7 +3,7 @@ package backend
 import "time"
 
 const (
-	AppName    = "BiliCastHelper"
+	AppName    = "BiliCast"
 	Version    = "0.4.0-crossplatform"
 	APIVersion = 1
 )

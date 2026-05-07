@@ -186,7 +186,7 @@ func (s *Service) Cast(ctx context.Context, req CastRequest) (*CastResult, error
 		Headers: map[string]string{
 			"Referer":    "https://www.bilibili.com/",
 			"Origin":     "https://www.bilibili.com",
-			"User-Agent": "Mozilla/5.0 BiliCastHelper/" + Version,
+			"User-Agent": "Mozilla/5.0 BiliCast/" + Version,
 		},
 		CreatedAt: time.Now(),
 		ExpiresAt: time.Now().Add(6 * time.Hour),
@@ -361,7 +361,7 @@ func (s *Service) FFmpegCommand(ctx context.Context, session StreamSession) (*ex
 	if s.ffmpegPath == "" {
 		return nil, fmt.Errorf("ffmpeg not found")
 	}
-	headers := "Referer: https://www.bilibili.com/\r\nUser-Agent: Mozilla/5.0 BiliCastHelper/" + Version + "\r\n"
+	headers := "Referer: https://www.bilibili.com/\r\nUser-Agent: Mozilla/5.0 BiliCast/" + Version + "\r\n"
 	cmd := exec.CommandContext(ctx, s.ffmpegPath,
 		"-loglevel", "warning", "-hide_banner", "-y",
 		"-headers", headers, "-i", session.VideoURL,
